@@ -6,9 +6,8 @@
 
 '''
 
-from zipline.api import order
 from zipline.api import schedule_function, date_rules, time_rules
-from utils import initialize_portfolio, trigger_rebalance_on_threshold
+from utils import initialize_portfolio, trigger_rebalance_on_threshold, rebalance, record_current_weights
 
 # inputs
 VERBOSE = True
@@ -38,6 +37,7 @@ def initialize(context):
     # config = ConfigParser()
     context.stocks = all_portfolios[GRP][SUBGRP]['stocks']
     risk_based_allocation = all_portfolios[GRP][SUBGRP]['levels']  # section_to_dict(subgrp, config)
+    if VERBOSE: print(context.stocks)
 
     if (RISK_LEVEL not in risk_based_allocation):
         raise Exception("Portfolio Doesn't Have Risk Level " + str(RISK_LEVEL))
@@ -66,31 +66,33 @@ def handle_data(context, data):
 
 
 def before_trading_starts(context, data):
-    trigger_rebalance_on_threshold(context, data, rebalance, THRESHOLD)
+    trigger_rebalance_on_threshold(context, data, rebalance, THRESHOLD, VERBOSE)
+
+    record_current_weights(context, data)  # record current weights
 
 
-def rebalance(context, data):
-    # Sell first so that got more cash
-    for stock in context.stocks:
-        # print(data.current(stock,'close'))
-        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
-        target_weight = context.target_allocation[stock]
-        distance = current_weight - target_weight
-        if (distance > 0):
-            amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
-            if (int(amount) == 0):
-                continue
-            if VERBOSE: print("Selling " + str(abs(int(amount))) + " shares of " + str(stock))
-            order(stock, int(amount))
+# def rebalance(context, data):
+#     # Sell first so that got more cash
+#     for stock in context.stocks:
+#         # print(data.current(stock,'close'))
+#         current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+#         target_weight = context.target_allocation[stock]
+#         distance = current_weight - target_weight
+#         if (distance > 0):
+#             amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
+#             if (int(amount) == 0):
+#                 continue
+#             if VERBOSE: print("Selling " + str(abs(int(amount))) + " shares of " + str(stock))
+#             order(stock, int(amount))
 
-    # Buy after selling
-    for stock in context.stocks:
-        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
-        target_weight = context.target_allocation[stock]
-        distance = current_weight - target_weight
-        if (distance < 0):
-            amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
-            if (int(amount) == 0):
-                continue
-            if VERBOSE: print("Buying " + str(int(amount)) + " shares of " + str(stock))
-            order(stock, int(amount))
+#     # Buy after selling
+#     for stock in context.stocks:
+#         current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+#         target_weight = context.target_allocation[stock]
+#         distance = current_weight - target_weight
+#         if (distance < 0):
+#             amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
+#             if (int(amount) == 0):
+#                 continue
+#             if VERBOSE: print("Buying " + str(int(amount)) + " shares of " + str(stock))
+#             order(stock, int(amount))

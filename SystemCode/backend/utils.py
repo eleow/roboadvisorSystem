@@ -3,20 +3,28 @@
 
 '''
 
-from zipline.api import commission, set_commission, symbols
+from zipline.api import commission, set_commission, symbols, record, order, order_target_percent
 # from configparser import ConfigParser
 # import datetime
 # import ast
 import numpy as np
-import cvxopt as opt
-from cvxopt import blas, solvers
+import pandas as pd
+# import cvxopt as opt
+# from cvxopt import blas, solvers
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import empyrical as ep
 import matplotlib.ticker as mtick
 import matplotlib.dates as mdates
 
-solvers.options['show_progress'] = False  # no need to show progress of solving
+# PyPortfolioOpt imports
+from pypfopt import risk_models, expected_returns
+from pypfopt.cla import CLA
+from pypfopt.base_optimizer import portfolio_performance
+from pypfopt.efficient_frontier import EfficientFrontier
+
+# solvers.options['show_progress'] = False  # no need to show progress of solving
 
 
 # Typical SG commission is % of transaction with a minimum trade cost
@@ -203,50 +211,202 @@ def initialize_portfolio(verbose=False):
     return all_portfolios
 
 
+def get_mu_sigma(prices, returns_model='mean_historical_return', risk_model='ledoit_wolf',
+                 frequency=252, span=500):
+    """Get mu (returns) and sigma (asset risk) given a expected returns model and risk model
+
+        prices (pd.DataFrame) – adjusted closing prices of the asset,
+            each row is a date and each column is a ticker/id.
+        returns_model (string, optional) - Model for estimating expected returns of assets,
+            either 'mean_historical_return' or 'ema_historical_return' (default: mean_historical_return)
+        risk_model (string, optional) - Risk model to quantify risk: sample_cov, ledoit_wolf,
+            defaults to ledoit_wolf, as recommended by Quantopian in their lecture series on quantitative finance.
+        frequency (int, optional) – number of time periods in a year, defaults to 252 (the number of trading days in a year)
+        span (int, optional) – Applicable only for 'ema_historical_return' expected returns.
+            The time-span for the EMA, defaults to 500-day EMA)
+    """
+    CHOICES_EXPECTED_RETURNS = {
+        'mean_historical_return': expected_returns.mean_historical_return(prices, frequency),
+        'ema_historical_return': expected_returns.ema_historical_return(prices, frequency, span)
+    }
+
+    CHOICES_RISK_MODEL = {
+        'sample_cov': risk_models.sample_cov(prices),
+        'ledoit_wolf': risk_models.CovarianceShrinkage(prices).ledoit_wolf()
+    }
+
+    mu = CHOICES_EXPECTED_RETURNS.get(returns_model.lower(), None)
+    S = CHOICES_RISK_MODEL.get(risk_model.lower(), None)
+
+    if mu is None:
+        raise Exception('Expected returns model %s is not supported. Only mean_historical_return and ema_historical_return are supported currently.' % risk_model)
+
+    if S is None:
+        raise Exception('Risk model %s is not supported. Only sample_cov and ledoit_wolf are supported currently.' % risk_model)
+
+    return mu, S
+
+
+def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True):
+    """Solve for optimal portfolio. Wrapper for pypfopt functions
+
+    Arguments:
+        mu (pd.Series) - Expected annual returns
+        S (pd.DataFrame/np.ndarray) - Expected annual volatility
+        objective (string, optional) - Optimise for either 'max_sharpe', or 'min_volatility', defaults to 'max_sharpe'
+        get_entire_frontier (boolean, optional) - Also get the entire efficient frontier, defaults to True
+
+    """
+
+    # if need to efficiently compute the entire efficient frontier for plotting, use CLA
+    # else use standard EfficientFrontier optimiser.
+    # (Note that optimum weights might be slightly different depending on whether CLA or EfficientFrontier was used)
+    Optimiser = CLA if get_entire_frontier else EfficientFrontier
+    op = Optimiser(mu, S)
+
+    if (objective is None):
+        # Get weights for both max_sharpe and min_volatility
+        opt_weights = []
+        op.max_sharpe()
+        opt_weights.append(op.clean_weights())
+        op.min_volatility()
+        opt_weights.append(op.clean_weights())
+    else:
+        if (objective == 'max_sharpe'):
+            op.max_sharpe()
+        elif (objective == 'min_volatility'):
+            op.min_volatility()
+
+        opt_weights = op.clean_weights()
+
+    if get_entire_frontier:
+        opt_returns, opt_risks, _ = op.efficient_frontier(points=200)
+        return opt_weights, opt_returns, opt_risks
+    else:
+        return opt_weights, None, None
+
+
+def generate_markowitz_bullet(prices, returns_model='mean_historical_return', risk_model='ledoit_wolf',
+                              frequency=252, span=500, objective='max_sharpe', num_random=20000,
+                              ax=None, plot_individual=True, verbose=True, visualise=True):
+    """Plot the markowitz bullet taking reference for plotting style from
+        https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f
+
+    Arguments:
+        prices (pd.DataFrame) – adjusted closing prices of the asset, each row is a date and each column is a ticker/id.
+        returns_model (string, optional) - Model for estimating expected returns of assets,
+            either 'mean_historical_return' or 'ema_historical_return' (default: mean_historical_return)
+        risk_model (string, optional) - Risk model to quantify risk: sample_cov, ledoit_wolf,
+            defaults to ledoit_wolf, as recommended by Quantopian in their lecture series on quantitative finance.
+        frequency (int, optional) – number of time periods in a year, defaults to 252 (the number of trading days in a year)
+        span (int, optional) – Applicable only for 'ema_historical_return' expected returns.
+            The time-span for the EMA, defaults to 500-day EMA)
+        objective (string, optional) - Optimise for either 'max_sharpe', or 'min_volatility', defaults to 'max_sharpe'
+        num_random (int, optional) - Number of random portfolios to generate for Markowitz Bullet. Set to 0 if not required
+        plot_individual (boolean, optional) - If True, plots individual stocks on chart as well
+        verbose (boolean, optional) - If True, prints out optimum portfolio allocations
+        visualise (boolean, optional) - If True, plots Markowitz bullet
+
+    Returns:
+        r_volatility, r_returns, opt_volatility, opt_returns
+        where
+            r_volatility - array containing expected annual volatility values for generated random portfolios
+            r_returns - array containg expected annual returns values for generated random portfolios
+            opt_volatility - array containing expected annual volatility values along the efficient frontier
+            opt_returns - array containing expected annual returns values along the efficient frontier
+
+    """
+
+    mu, S = get_mu_sigma(prices, returns_model, risk_model, frequency, span)
+    opt_weights, opt_returns, opt_volatility = optimal_portfolio(mu, S, None, True)
+
+    if (verbose): print("-"*80 + "\nMaximum Sharpe Ratio Portfolio Allocation\n")
+    max_sharpe_returns, max_sharpe_volatility, max_sharpe_ratio = portfolio_performance(mu, S, opt_weights[0], verbose)
+    if (verbose): print("-"*80 + "\ninimum Volatility Portfolio Allocation\n")
+    min_vol_returns, min_vol_volatility, min_vol_ratio = portfolio_performance(mu, S, opt_weights[1], verbose)
+
+    if (visualise):
+        plt.style.use('fivethirtyeight')
+
+        if (ax is None): fig, ax = plt.subplots(figsize=(12, 8))
+
+        # Plot Efficient Frontier (Annualised returns vs annualised volatility)
+        ax.plot(opt_volatility, opt_returns, linestyle='-.', linewidth=1, color='black', label='Efficient frontier')
+
+        # Plot optimum portfolios
+        ax.plot(max_sharpe_volatility, max_sharpe_returns, 'r*', label='Max Sharpe', markersize=20)
+        ax.plot(min_vol_volatility, min_vol_returns, 'g*', label='Min Volatility', markersize=20)
+
+        # Plot individual stocks in 'prices' pandas dataframe
+        if plot_individual:
+            stock_names = list(prices.columns)
+            s_returns = []
+            s_volatility = []
+            for i in range(len(stock_names)):
+                w = [0] * len(stock_names)
+                w[i] = 1
+                s_returns, s_volatility, _ = portfolio_performance(mu, S, w)
+                ax.plot(s_volatility, s_returns, 'o', markersize=10)
+                ax.annotate(stock_names[i], (s_volatility, s_returns), xytext=(10, 0), textcoords='offset points')
+
+        # Generate random portfolios
+        if (num_random > 0):
+            r_returns, r_volatility, r_sharpe = tuple(zip(*[portfolio_performance(mu, S, rand_weights(len(mu))) for _ in range(num_random)]))
+            ax.scatter(r_volatility, r_returns, c=r_sharpe, cmap='YlGnBu', marker='o', s=10, alpha=0.3)  # random portfolios, colormap based on sharpe ratio
+
+        # Set graph's axes
+        ax.set_title('Markowitz Bullet')
+        ax.set_xlabel('annualised volatility')
+        ax.set_ylabel('annualised returns')
+        ax.legend()
+
+    return r_volatility, r_returns, opt_volatility, opt_returns
+
+
 # The following are adapted from
 # https://www.quantopian.com/posts/the-efficient-frontier-markowitz-portfolio-optimization-in-python
 # https://github.com/quantopian/research_public/blob/master/research/Markowitz-Quantopian-Research.ipynb
-def optimal_portfolio(returns, N=100, verbose=1):
-    """Solve for optimal portfolio
+# def optimal_portfolio(returns, N=100, verbose=1):
+#     """Solve for optimal portfolio
 
-    Arguments:
-        returns: Returns for each asset. Numpy array (dimension of num_obv X num_assets),
-            where num_obv will be the number of past samples to take mean of
-        N: number of mus (expected returns). Note mus will be in a non-linear range
+#     Arguments:
+#         returns: Returns for each asset. Numpy array (dimension of num_obv X num_assets),
+#             where num_obv will be the number of past samples to take mean of
+#         N: number of mus (expected returns). Note mus will be in a non-linear range
 
-    """
-    n = len(returns)
-    returns = np.asmatrix(returns)
+#     """
+#     n = len(returns)
+#     returns = np.asmatrix(returns)
 
-    mus = [10**(5.0 * t/N - 1.0) for t in range(N)]  # series of expected return values
+#     mus = [10**(5.0 * t/N - 1.0) for t in range(N)]  # series of expected return values
 
-    # Convert to cvxopt matrices
-    S = opt.matrix(np.cov(returns))
-    pbar = opt.matrix(np.mean(returns, axis=1))
+#     # Convert to cvxopt matrices
+#     S = opt.matrix(np.cov(returns))
+#     pbar = opt.matrix(np.mean(returns, axis=1))
 
-    # Create constraint matrices
-    G = -opt.matrix(np.eye(n))   # negative n x n identity matrix
-    h = opt.matrix(0.0, (n, 1))  # h = opt.matrix(-0.15, (n, 1))
-    A = opt.matrix(1.0, (1, n))
-    b = opt.matrix(1.0)
+#     # Create constraint matrices
+#     G = -opt.matrix(np.eye(n))   # negative n x n identity matrix
+#     h = opt.matrix(0.0, (n, 1))  # h = opt.matrix(-0.15, (n, 1))
+#     A = opt.matrix(1.0, (1, n))
+#     b = opt.matrix(1.0)
 
-    # Calculate efficient frontier weights using quadratic programming
-    portfolios = [solvers.qp(mu*S, -pbar, G, h, A, b)['x'] for mu in mus]
-    # CALCULATE RISKS AND RETURNS FOR FRONTIER
-    returns = [blas.dot(pbar, x) for x in portfolios]
-    risks = [np.sqrt(blas.dot(x, S*x)) for x in portfolios]
-    # CALCULATE THE 2ND DEGREE POLYNOMIAL OF THE FRONTIER CURVE
-    m1 = np.polyfit(returns, risks, 2)
+#     # Calculate efficient frontier weights using quadratic programming
+#     portfolios = [solvers.qp(mu*S, -pbar, G, h, A, b)['x'] for mu in mus]
+#     # CALCULATE RISKS AND RETURNS FOR FRONTIER
+#     opt_returns = [blas.dot(pbar, x) for x in portfolios]
+#     opt_risks = [np.sqrt(blas.dot(x, S*x)) for x in portfolios]
+#     # CALCULATE THE 2ND DEGREE POLYNOMIAL OF THE FRONTIER CURVE
+#     m1 = np.polyfit(opt_returns, opt_risks, 2)
 
-    # Guard against negative sqrt
-    if (m1[2] < 0):
-        return None, returns, risks
+#     # Guard against negative sqrt
+#     if (m1[2] < 0):
+#         return None, opt_returns, opt_risks
 
-    x1 = np.sqrt(m1[2] / m1[0])
-    # CALCULATE THE OPTIMAL PORTFOLIO
-    if verbose == 0: solvers.options['show_progress'] = False
-    wt = solvers.qp(opt.matrix(x1 * S), -pbar, G, h, A, b)['x']
-    return np.asarray(wt), returns, risks
+#     x1 = np.sqrt(m1[2] / m1[0])
+#     # CALCULATE THE OPTIMAL PORTFOLIO
+#     if verbose == 0: solvers.options['show_progress'] = False
+#     wt = solvers.qp(opt.matrix(x1 * S), -pbar, G, h, A, b)['x']
+#     return np.asarray(wt), opt_returns, opt_risks
 
 
 def rand_weights(n):
@@ -255,65 +415,65 @@ def rand_weights(n):
     return k / sum(k)
 
 
-def get_mu_sigma(returns, weights=None):
-    """
-    Returns the mean and standard deviation of returns for a portfolio
-    Uses random weights if weights=None
-    """
+# def get_mu_sigma(returns, weights=None):
+#     """
+#     Returns the mean and standard deviation of returns for a portfolio
+#     Uses random weights if weights=None
+#     """
 
-    p = np.asmatrix(np.mean(returns, axis=1))
-    w = np.asmatrix(rand_weights(returns.shape[0]) if weights is None else weights)
-    C = np.asmatrix(np.cov(returns))
-    mu = w * p.T
-    sigma = np.sqrt(w * C * w.T)
+#     p = np.asmatrix(np.mean(returns, axis=1))
+#     w = np.asmatrix(rand_weights(returns.shape[0]) if weights is None else weights)
+#     C = np.asmatrix(np.cov(returns))
+#     mu = w * p.T
+#     sigma = np.sqrt(w * C * w.T)
 
-    # This recursion reduces outliers to keep plots pretty
-    if sigma > 2:
-        return get_mu_sigma(returns, weights)
-    return mu, sigma
-
-
-def generate_markowitz_bullet(returns, n_portfolios=500, visualise=True, optimum=None, title='Markowitz Bullet'):
-    """Based on the assets returns,
-        1) randomly assign weights to get the markowitz bullet
-        2) get optimal portfolio
-
-    Arguments:
-        returns: Returns for each asset. Numpy array (dimension of num_obv X num_assets),
-            where num_obv will be the number of past samples to take mean of
-        n_portfolios: Number of portfolios to randomly generate for
-
-    """
-    means = []
-    stds = []
-
-    # random weighted portfolio
-    if (n_portfolios > 0):
-        means, stds = np.column_stack([get_mu_sigma(returns) for _ in range(n_portfolios)])
-
-    # optimum portfolio at the efficient frontier
-    if (optimum is None):
-        opt_weights, opt_returns, opt_risks = optimal_portfolio(returns)
-    else:
-        opt_weights, opt_returns, opt_risks = optimum
-
-    if visualise:
-        import matplotlib.pyplot as plt
-        plt.plot(stds, means, 'o', markersize=5)
-        plt.xlabel('std')
-        plt.ylabel('mean')
-        # plt.xlim(0, 2)
-        plt.plot(opt_risks, opt_returns, 'y-o')
-        plt.title(title)
-
-    return stds, means, opt_risks, opt_returns
+#     # This recursion reduces outliers to keep plots pretty
+#     if sigma > 2:
+#         return get_mu_sigma(returns, weights)
+#     return mu, sigma
 
 
-def trigger_rebalance_on_threshold(context, data, rebalance, threshold):
+# def generate_markowitz_bullet(returns, n_portfolios=500, visualise=True, optimum=None, title='Markowitz Bullet'):
+#     """Based on the assets returns,
+#         1) randomly assign weights to get the markowitz bullet
+#         2) get optimal portfolio
+
+#     Arguments:
+#         returns: Returns for each asset. Numpy array (dimension of num_obv X num_assets),
+#             where num_obv will be the number of past samples to take mean of
+#         n_portfolios: Number of portfolios to randomly generate for
+
+#     """
+#     means = []
+#     stds = []
+
+#     # random weighted portfolio
+#     if (n_portfolios > 0):
+#         means, stds = np.column_stack([get_mu_sigma(returns) for _ in range(n_portfolios)])
+
+#     # optimum portfolio at the efficient frontier
+#     if (optimum is None):
+#         opt_weights, opt_returns, opt_risks = optimal_portfolio(returns)
+#     else:
+#         opt_weights, opt_returns, opt_risks = optimum
+
+#     if visualise:
+#         import matplotlib.pyplot as plt
+#         plt.plot(stds, means, 'o', markersize=5)
+#         plt.xlabel('std')
+#         plt.ylabel('mean')
+#         # plt.xlim(0, 2)
+#         plt.plot(opt_risks, opt_returns, 'y-o')
+#         plt.title(title)
+
+#     return stds, means, opt_risks, opt_returns
+
+
+def trigger_rebalance_on_threshold(context, data, rebalance_fn, threshold, verbose):
     """Trigger a rebalance if actual and target allocation differs by 'threshold'
 
     Arguments:
-        rebalance - rebalance function to execute
+        rebalance_fn - rebalance function to execute
         threshold - value to trigger rebalance (0-1)
 
     """
@@ -328,7 +488,7 @@ def trigger_rebalance_on_threshold(context, data, rebalance, threshold):
         growth = float(weight) / float(context.target_allocation[stock])
         # if weights of any position exceed THRESHOLD, trigger rebalance
         if (growth >= 1 + threshold or growth <= 1 - threshold):
-            rebalance(context, data)
+            rebalance_fn(context, data, verbose)
             break
     # print("No need to rebalance!")
 
@@ -391,3 +551,126 @@ def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, 
     ax.xaxis.set_minor_locator(months)
 
     return ax
+
+
+def record_allocation(context):
+    """Record allocation data for use in analysis
+    """
+    # targets = list([(k.symbol, np.asscalar(v)) for k, v in context.target_allocation.items()])
+    targets = list([(k.symbol, v) for k, v in context.target_allocation.items()])
+    record(allocation=targets, cash=context.portfolio.cash)
+    # print(type(targets), targets)
+
+
+def record_current_weights(context, data):
+    """Record current weights of portfolio for use in analysis
+    """
+
+    weights = []
+    for stock in context.stocks:
+        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+        weights.append((stock.symbol, current_weight))
+
+    record(curr_weights=weights)
+
+
+def seriesToDataFrame(recorded_data):
+    m = []
+    index = []
+    columns = [l[0] for l in recorded_data[-1]]
+    for k, v in recorded_data.items():
+        if (type(v) == list):
+            m.append(list(zip(*v))[1])
+            # m.append((v[0][1], v[1][1], v[2][1], v[3][1]))
+            index.append(k)
+
+    df = pd.DataFrame(m, columns=columns)
+    df.index = index  # by right, can just use allocation.index, but there are some NaN values
+    return df
+
+
+def analyze(context, perf):
+
+    # https://matplotlib.org/tutorials/intermediate/gridspec.html
+    gs1 = gridspec.GridSpec(2, 1)
+    gs1.update(hspace=2.5)  # set the spacing between axes.
+
+    # fig = plt.figure()
+    # ax1 = fig.add_subplot(211)
+    ax1 = plt.subplot(gs1[0])
+    perf.portfolio_value.plot(ax=ax1)
+    ax1.set_title('portfolio value in $')
+
+    # Retrieve extra parameters that were stored
+    # df_allocation = seriesToDataFrame(perf['allocation'])
+    df_weights = seriesToDataFrame(perf['curr_weights'])
+
+    # ax2 = fig.add_subplot(212)
+    # ax2 = plt.subplot(gs1[1])
+    # df_allocation.plot.area(ax=ax2)
+    # ax2.set_title('Portfolio target allocation')
+    # # ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
+    #
+    ax3 = plt.subplot(gs1[1])
+    df_weights.plot.area(ax=ax3)
+    ax3.set_title('Portfolio weights')
+    ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.show()
+
+    # export to pickle for debugging
+    import pickle
+    with open('data.pickle', 'wb') as f:
+        pickle.dump(perf['curr_weights'], f)
+
+
+def rebalance_o(context, data, verbose):
+    # allocate(context, data)
+    if verbose: print("-"*30)
+
+    # Sell first so that got more cash
+    for stock in context.stocks:
+        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+        target_weight = context.target_allocation[stock]
+        distance = current_weight - target_weight
+        if (distance > 0):
+            amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
+            if (int(amount) == 0):
+                continue
+            if verbose: print("Selling " + str(int(amount * -1)) + " shares of " + str(stock))
+            order(stock, int(amount))
+
+    # Buy after selling
+    for stock in context.stocks:
+        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+        target_weight = context.target_allocation[stock]
+        distance = current_weight - target_weight
+        if (distance < 0):
+            amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
+            if (int(amount) == 0):
+                continue
+            if verbose: print("Buying " + str(int(amount)) + " shares of " + str(stock))
+            order(stock, int(amount))
+    if verbose: print('-'*30)
+
+    # record for use in analysis
+    record_allocation(context)
+
+
+def rebalance(context, data, verbose):
+    """Rebalance portfolio
+
+    If function enters, rebalance is deemed to be necessary, and rebalancing will be done
+    """
+
+    # allocate(context, data)
+    if verbose: print("-"*30)
+
+    # Just use order_target to rebalance?
+    for stock in context.stocks:
+        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+        order_target_percent(stock, context.target_allocation[stock])
+        if verbose: print("%s: %.5f -> %.5f" % (stock, current_weight, context.target_allocation[stock]))
+
+    # record for use in analysis
+    record_allocation(context)
