@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"favorites.resources": [
+			"smartportfolioadvisor\\src\\accounts\\forms.py",
+			"SystemCode\\frontend\\smartportfolioWeb\\src\\templates",
+			"SystemCode\\frontend\\smartportfolioWeb\\src\\Makefile",
+			"SystemCode\\backend\\_download.py",
+			"SystemCode\\backend\\ed_algo.py"
+		]
+	}
+}
