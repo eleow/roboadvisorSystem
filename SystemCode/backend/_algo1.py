@@ -11,6 +11,7 @@ from zipline.api import schedule_function, date_rules, time_rules
 from utils import initialize_portfolio, trigger_rebalance_on_threshold
 
 # inputs
+VERBOSE = True
 GRP = 'VANGUARD'
 SUBGRP = 'CORE_SERIES'
 RISK_LEVEL = 5      # 1-9 for Tax Efficient Series, 0-10 otherwise
@@ -25,10 +26,10 @@ all_portfolios = {}
 def initialize(context):
     global all_portfolios
 
-    print("Starting the robo advisor")
+    if VERBOSE: print("Starting the robo advisor")
 
     # Populate Portfolios
-    all_portfolios = initialize_portfolio()
+    all_portfolios = initialize_portfolio(VERBOSE)
 
     # Set Commission model
     # initialize_commission(country=country, platform=trading_platform)
@@ -79,7 +80,7 @@ def rebalance(context, data):
             amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
             if (int(amount) == 0):
                 continue
-            print("Selling " + str(abs(int(amount))) + " shares of " + str(stock))
+            if VERBOSE: print("Selling " + str(abs(int(amount))) + " shares of " + str(stock))
             order(stock, int(amount))
 
     # Buy after selling
@@ -91,5 +92,5 @@ def rebalance(context, data):
             amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
             if (int(amount) == 0):
                 continue
-            print("Buying " + str(int(amount)) + " shares of " + str(stock))
+            if VERBOSE: print("Buying " + str(int(amount)) + " shares of " + str(stock))
             order(stock, int(amount))

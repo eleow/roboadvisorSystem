@@ -18,8 +18,6 @@ def downloadData(args):
         yahoo_financials = YahooFinancials(ticker)
 
         print('Downloading data for ', ticker, 'from ', start_date, ' to ', end_date)
-        print('Note that price data will differ slightly from Quantopian\'s')
-        print(' See: https://www.quantopian.com/posts/incorrect-pricing-on-quantopian')
 
         df = yahoo_financials.get_historical_price_data(start_date, end_date, freq)
         df = pd.DataFrame(df[ticker]['prices']).drop(['date'], axis=1) \
@@ -50,7 +48,8 @@ def downloadData(args):
                           end_date=args['end_date'],
                           freq=freq,
                           path=os.path.join(dataDirectory, freq, t + '.csv'))
-
+    print('\nNote that price data will differ slightly from Quantopian\'s')
+    print(' See: https://www.quantopian.com/posts/incorrect-pricing-on-quantopian')
 
 # Ingest our custom bundle 'roboadvisor'
 # note: Remember to update the start and end dates in ~/.zipline/extension.py
