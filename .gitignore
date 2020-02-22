@@ -130,6 +130,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-#
+# Exclude folder _misc, unless it is at the root
 _misc/
+!/_misc
 *.lnk
