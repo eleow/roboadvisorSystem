@@ -17,6 +17,7 @@ from pypfopt import risk_models, expected_returns
 from pypfopt.cla import CLA
 from pypfopt.base_optimizer import portfolio_performance
 from pypfopt.efficient_frontier import EfficientFrontier
+from pypfopt.hierarchical_risk_parity import HRPOpt
 
 # Pyfolio imports
 import pyfolio as pf
@@ -193,6 +194,19 @@ def get_mu_sigma(prices, returns_model='mean_historical_return', risk_model='led
     return mu, S
 
 
+def hrp_portfolio(prices):
+    """Solve for Hierarchical risk parity portfolio
+
+    Arguments:
+        prices (pd.DataFrame) – adjusted (daily) closing prices of the asset, each row is a date and each column is a ticker/id.
+    """
+
+    returns = expected_returns.returns_from_prices(prices)
+    hrp = HRPOpt(returns)
+    weights = hrp.hrp_portfolio()
+    return weights
+
+
 def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True):
     """Solve for optimal portfolio. Wrapper for pypfopt functions
 
@@ -352,7 +366,7 @@ def print_table_from_perf_array(perf, factor_returns=None):
     for column in perf_stats_all.columns:
         for stat, value in perf_stats_all[column].iteritems():
             if stat in STAT_FUNCS_PCT:
-                perf_stats_all.loc[stat, column] = str(np.round(value * 100,3)) + '%'
+                perf_stats_all.loc[stat, column] = str(np.round(value * 100, 3)) + '%'
     df = pd.DataFrame(perf_stats_all)
     df.columns = names_arr
 

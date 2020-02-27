@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
+import os
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+from zipline import run_algorithm
 from zipline.api import schedule_function, date_rules, time_rules
 from zipline.api import commission, set_commission, symbols, order
-from utils import optimal_portfolio, get_mu_sigma
+from utils import optimal_portfolio, get_mu_sigma, hrp_portfolio
 from utils import rebalance, record_allocation, record_current_weights
 from utils import seriesToDataFrame, initialize_portfolio
 
@@ -52,7 +54,7 @@ class Algorithm(ABC):
         # ax1 = fig.add_subplot(211)
         ax1 = plt.subplot(gs1[0])
         perf.portfolio_value.plot(ax=ax1)
-        ax1.set_title('portfolio value in $')
+        ax1.set_title('Portfolio value in $')
 
         # Retrieve extra parameters that were stored
         # df_allocation = seriesToDataFrame(perf['allocation'])
@@ -175,18 +177,25 @@ class CRBAlgorithm(Algorithm):
         record_current_weights(context, data)  # record current weights
 
 
-class MPTAlgorithm(Algorithm):
-    '''Modern Portfolio Theory / Mean-Variance Optimisation
+class OptAlgorithm(Algorithm):
+    '''Optimisation portfolio using either Modern Portfolio Theory (MPT) / Mean-Variance Optimisation, or Hierarchical Risk Parity (HRP)
+
     - Pre-assembled fixed basket of tickers (default: ETFs based on VANGUARD series)
-    - Allocate and rebalance based on Modern Portfolio Theory with efficient frontier, at end of every month
+    - Allocate and rebalance based on MPT/ HRP, at end of every month
     - Rebalance triggered when target allocation differs from current allocation by more than a threshold
+
+    objective (str)
+    - 'max_sharpe' - optimise with MPT for maximum sharpe ratio.
+    - 'min_volatility' - optimise with MPT for minimum volatility
+    - 'hrp' - optimise using HRP
+
     '''
     def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05,
                  stocks=None, country='US', trading_platform='', name='algo_mpt_optimisation',
                  collect_before_trading=True, history=252, frequency=252,
                  returns_model='mean_historical_return', risk_model='ledoit_wolf', objective='max_sharpe'
                  ):
-        super(MPTAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, stocks, country, trading_platform)
+        super(OptAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, stocks, country, trading_platform)
         # a = self.algo
         self.collect_before_trading = collect_before_trading
         self.history = history
@@ -196,7 +205,7 @@ class MPTAlgorithm(Algorithm):
         self.objective = objective
 
     def initialize(self, context):
-        super(MPTAlgorithm, self).initialize(context)
+        super(OptAlgorithm, self).initialize(context)
 
         # set universe and risk level
         context.stocks = self.all_portfolios[self.grp][self.subgrp]['stocks'] if self.stocks is None else symbols(*self.stocks)
@@ -230,13 +239,7 @@ class MPTAlgorithm(Algorithm):
 
         # Get rolling window of past prices and compute returns
         prices = data.history(stocks_that_exist, 'price', self.history, '1d').dropna()
-
-        mu, S = get_mu_sigma(prices, self.returns_model, self.risk_model, self.frequency)
-        context.weights, _, _ = optimal_portfolio(mu, S, self.objective, get_entire_frontier=False)
-        context.weights = list(context.weights.values())
-
-        # returns = prices.pct_change().dropna()
-        # context.weights, _, _ = optimal_portfolio(returns.T)
+        context.weights = self.get_weights(prices)
 
         if (isinstance(context.weights, type(None))):
             if self.verbose: print("Error in weights. Skipping")
@@ -266,6 +269,17 @@ class MPTAlgorithm(Algorithm):
 
             # record for use in analysis
             record_allocation(context)
+
+    def get_weights(self, prices):
+
+        if self.objective == "hrp":
+            weights = hrp_portfolio(prices)
+        else:
+            mu, S = get_mu_sigma(prices, self.returns_model, self.risk_model, self.frequency)
+            weights, _, _ = optimal_portfolio(mu, S, self.objective, get_entire_frontier=False)
+
+        weights = list(weights.values())
+        return weights
 
 
 ###############################################################################
@@ -317,3 +331,12 @@ class SGCommission(commission.EquityCommissionModel):
 
         return max(self.min_trade_cost, abs(transaction.amount) * cost_per_share)
 ###############################################################################
+
+
+def run(name, algo, bundle_name, start, end, capital_base, analyze=True):
+    '''Helper to run algorithm
+    '''
+    return (name, run_algorithm(start=start, end=end,
+                                initialize=algo.initialize, handle_data=algo.handle_data, analyze=algo.analyze if analyze else None,
+                                capital_base=capital_base, environ=os.environ, bundle=bundle_name
+                                ))
