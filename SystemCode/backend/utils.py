@@ -2,21 +2,15 @@
     Utility functions to support trading algorithms
 
 '''
-
-from zipline.api import commission, set_commission, symbols, record, order, order_target_percent
-# from configparser import ConfigParser
-# import datetime
-# import ast
 import numpy as np
 import pandas as pd
-# import cvxopt as opt
-# from cvxopt import blas, solvers
-
+from collections import OrderedDict
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import empyrical as ep
 import matplotlib.ticker as mtick
 import matplotlib.dates as mdates
+
+from zipline.api import symbols, record, order, order_target_percent
+import empyrical as ep
 
 # PyPortfolioOpt imports
 from pypfopt import risk_models, expected_returns
@@ -24,53 +18,10 @@ from pypfopt.cla import CLA
 from pypfopt.base_optimizer import portfolio_performance
 from pypfopt.efficient_frontier import EfficientFrontier
 
-# solvers.options['show_progress'] = False  # no need to show progress of solving
-
-
-# Typical SG commission is % of transaction with a minimum trade cost
-class SGCommission(commission.EquityCommissionModel):
-    def __init__(self, cost=-1, min_trade_cost=0, platform='vickers'):
-        self.cost_per_dollar = float(cost)
-        self.min_trade_cost = min_trade_cost or 0
-        self.platform = platform
-
-    def __repr__(self):
-        return "{class_name}(cost_per_dollar={cost})".format(
-            class_name=self.__class__.__name__,
-            cost=self.cost_per_dollar)
-
-    def calculate(self, order, transaction):
-        """
-        Pay commission based on dollar value of shares, with min trade
-        """
-
-        # For SG stocks
-        gst = 0.07
-        clearing_fee = 0.0325
-        trading_fee = 0.0075
-
-        trade_value = abs(transaction.amount) * transaction.price
-
-        # if cost is unspecified, we will calculate based on brokeage rates
-        if (self.cost_per_dollar == -1):
-            # correct as of 18/12/2019.
-            # Rates obtained from https://www.dbs.com.sg/vickers/en/pricing/fee-schedules/singapore-accounts
-            if self.platform == 'vickers':
-                if (trade_value <= 50000):
-                    comm = 0.28
-                elif (trade_value <= 100000):
-                    comm = 0.22
-                else:
-                    comm = 0.18
-
-                self.min_trade_cost = 25
-                total_comm = (comm + clearing_fee + trading_fee)*(1+gst)/100
-
-            cost_per_share = transaction.price * total_comm
-        else:
-            cost_per_share = transaction.price * self.cost_per_dollar
-
-        return max(self.min_trade_cost, abs(transaction.amount) * cost_per_share)
+# Pyfolio imports
+import pyfolio as pf
+from pyfolio.utils import print_table
+from pyfolio.timeseries import perf_stats
 
 
 def add_portfolio(all_portfolios, group, subgroup, sym, risk_level):
@@ -86,16 +37,6 @@ def add_portfolio(all_portfolios, group, subgroup, sym, risk_level):
         'stocks': sym,
         'levels': risk_level
     }
-
-
-def initialize_commission(country='SG', platform='vickers'):
-    """Sets commissions
-
-    See https://www.quantopian.com/help#ide-commission and
-        https://www.quantopian.com/docs/api-reference/algorithm-api-reference#zipline.finance.commission.PerDollar
-    """
-    if (country == 'SG'):
-        set_commission(SGCommission(platform=platform))
 
 
 def initialize_portfolio(verbose=False):
@@ -119,6 +60,11 @@ def initialize_portfolio(verbose=False):
 
     if verbose: print('Initialising portfolio database')
     all_portfolios = {}
+
+    # 11 SPDR sector ETFs
+    add_portfolio(all_portfolios, 'SPDR', 'ALL_SECTORS', symbols('XLE', 'XLRE', 'XLF', 'XLV', 'XLC', 'XLI', 'XLY', 'XLP', 'XLB', 'XLK', 'XLU'), {
+        0: tuple(1 for _ in range(11))
+    })
 
     # Ray Dalio's All Weather Portfolio. Rebalancing once a year or more, with the following suggested distributions:
     # * 30% stocks (eg VTI)
@@ -322,7 +268,7 @@ def generate_markowitz_bullet(prices, returns_model='mean_historical_return', ri
 
     if (verbose): print("-"*80 + "\nMaximum Sharpe Ratio Portfolio Allocation\n")
     max_sharpe_returns, max_sharpe_volatility, max_sharpe_ratio = portfolio_performance(mu, S, opt_weights[0], verbose)
-    if (verbose): print("-"*80 + "\ninimum Volatility Portfolio Allocation\n")
+    if (verbose): print("-"*80 + "\nMinimum Volatility Portfolio Allocation\n")
     min_vol_returns, min_vol_volatility, min_vol_ratio = portfolio_performance(mu, S, opt_weights[1], verbose)
 
     if (visualise):
@@ -363,134 +309,79 @@ def generate_markowitz_bullet(prices, returns_model='mean_historical_return', ri
     return r_volatility, r_returns, opt_volatility, opt_returns
 
 
-# The following are adapted from
-# https://www.quantopian.com/posts/the-efficient-frontier-markowitz-portfolio-optimization-in-python
-# https://github.com/quantopian/research_public/blob/master/research/Markowitz-Quantopian-Research.ipynb
-# def optimal_portfolio(returns, N=100, verbose=1):
-#     """Solve for optimal portfolio
-
-#     Arguments:
-#         returns: Returns for each asset. Numpy array (dimension of num_obv X num_assets),
-#             where num_obv will be the number of past samples to take mean of
-#         N: number of mus (expected returns). Note mus will be in a non-linear range
-
-#     """
-#     n = len(returns)
-#     returns = np.asmatrix(returns)
-
-#     mus = [10**(5.0 * t/N - 1.0) for t in range(N)]  # series of expected return values
-
-#     # Convert to cvxopt matrices
-#     S = opt.matrix(np.cov(returns))
-#     pbar = opt.matrix(np.mean(returns, axis=1))
-
-#     # Create constraint matrices
-#     G = -opt.matrix(np.eye(n))   # negative n x n identity matrix
-#     h = opt.matrix(0.0, (n, 1))  # h = opt.matrix(-0.15, (n, 1))
-#     A = opt.matrix(1.0, (1, n))
-#     b = opt.matrix(1.0)
-
-#     # Calculate efficient frontier weights using quadratic programming
-#     portfolios = [solvers.qp(mu*S, -pbar, G, h, A, b)['x'] for mu in mus]
-#     # CALCULATE RISKS AND RETURNS FOR FRONTIER
-#     opt_returns = [blas.dot(pbar, x) for x in portfolios]
-#     opt_risks = [np.sqrt(blas.dot(x, S*x)) for x in portfolios]
-#     # CALCULATE THE 2ND DEGREE POLYNOMIAL OF THE FRONTIER CURVE
-#     m1 = np.polyfit(opt_returns, opt_risks, 2)
-
-#     # Guard against negative sqrt
-#     if (m1[2] < 0):
-#         return None, opt_returns, opt_risks
-
-#     x1 = np.sqrt(m1[2] / m1[0])
-#     # CALCULATE THE OPTIMAL PORTFOLIO
-#     if verbose == 0: solvers.options['show_progress'] = False
-#     wt = solvers.qp(opt.matrix(x1 * S), -pbar, G, h, A, b)['x']
-#     return np.asarray(wt), opt_returns, opt_risks
-
-
 def rand_weights(n):
     """Produces n random weights that sum to 1"""
     k = np.random.rand(n)
     return k / sum(k)
 
 
-# def get_mu_sigma(returns, weights=None):
-#     """
-#     Returns the mean and standard deviation of returns for a portfolio
-#     Uses random weights if weights=None
-#     """
+def print_table_from_perf_array(perf, factor_returns=None):
+    APPROX_BDAYS_PER_MONTH = 21
+    # APPROX_BDAYS_PER_YEAR = 252
 
-#     p = np.asmatrix(np.mean(returns, axis=1))
-#     w = np.asmatrix(rand_weights(returns.shape[0]) if weights is None else weights)
-#     C = np.asmatrix(np.cov(returns))
-#     mu = w * p.T
-#     sigma = np.sqrt(w * C * w.T)
+    STAT_FUNCS_PCT = [
+        'Annual return',
+        'Cumulative returns',
+        'Annual volatility',
+        'Max drawdown',
+        'Daily value at risk',
+        'Daily turnover'
+    ]
 
-#     # This recursion reduces outliers to keep plots pretty
-#     if sigma > 2:
-#         return get_mu_sigma(returns, weights)
-#     return mu, sigma
+    arr = list(zip(*[(pData[0], pf.utils.extract_rets_pos_txn_from_zipline(pData[1])[0]) for pData in perf]))
+    names_arr = arr[0]
+    returns_arr = arr[1]
 
+    # get headers
+    returns = returns_arr[0]  # take first row as representative of all other backtests
+    date_rows = OrderedDict()
+    if len(returns.index) > 0:
+        date_rows['Start date'] = returns.index[0].strftime('%Y-%m-%d')
+        date_rows['End date'] = returns.index[-1].strftime('%Y-%m-%d')
+        date_rows['Total months'] = int(len(returns) / APPROX_BDAYS_PER_MONTH)
 
-# def generate_markowitz_bullet(returns, n_portfolios=500, visualise=True, optimum=None, title='Markowitz Bullet'):
-#     """Based on the assets returns,
-#         1) randomly assign weights to get the markowitz bullet
-#         2) get optimal portfolio
+    # get peformance stats
+    perf_stats_arr = []
+    for i in range(len(returns_arr)):
+        perf_stats_arr.append(
+            perf_stats(returns_arr[i], factor_returns=factor_returns)
+        )
 
-#     Arguments:
-#         returns: Returns for each asset. Numpy array (dimension of num_obv X num_assets),
-#             where num_obv will be the number of past samples to take mean of
-#         n_portfolios: Number of portfolios to randomly generate for
+    perf_stats_all = pd.concat(perf_stats_arr, axis=1)
 
-#     """
-#     means = []
-#     stds = []
+    for column in perf_stats_all.columns:
+        for stat, value in perf_stats_all[column].iteritems():
+            if stat in STAT_FUNCS_PCT:
+                perf_stats_all.loc[stat, column] = str(np.round(value * 100,3)) + '%'
+    df = pd.DataFrame(perf_stats_all)
+    df.columns = names_arr
 
-#     # random weighted portfolio
-#     if (n_portfolios > 0):
-#         means, stds = np.column_stack([get_mu_sigma(returns) for _ in range(n_portfolios)])
-
-#     # optimum portfolio at the efficient frontier
-#     if (optimum is None):
-#         opt_weights, opt_returns, opt_risks = optimal_portfolio(returns)
-#     else:
-#         opt_weights, opt_returns, opt_risks = optimum
-
-#     if visualise:
-#         import matplotlib.pyplot as plt
-#         plt.plot(stds, means, 'o', markersize=5)
-#         plt.xlabel('std')
-#         plt.ylabel('mean')
-#         # plt.xlim(0, 2)
-#         plt.plot(opt_risks, opt_returns, 'y-o')
-#         plt.title(title)
-
-#     return stds, means, opt_risks, opt_returns
+    # print table
+    print_table(df, float_format='{0:.2f}'.format, header_rows=date_rows)
 
 
-def trigger_rebalance_on_threshold(context, data, rebalance_fn, threshold, verbose):
-    """Trigger a rebalance if actual and target allocation differs by 'threshold'
+def plot_rolling_returns_from_perf_array(perf, factor_returns=None):
+    """
+    Plot cumulative rolling returns, given an array of performance data and benchmark
 
     Arguments:
-        rebalance_fn - rebalance function to execute
-        threshold - value to trigger rebalance (0-1)
+    ----------
+    perf (array of tuple of (string, pd.DataFrame))
+    - Array of tuple of (run_name, performance). Performance is the output of zipline.api.run_algorithm
+
+    factor_returns (pd.Series, optional)
+    - Daily noncumulative returns of the benchmark factor to which betas are computed.
+    - Usually a benchmark such as market returns. This is in the same style as returns.
 
     """
-    # total value of portfolio
-    value = context.portfolio.portfolio_value  # value = context.portfolio.portfolio_value + context.portfolio.cash
-    # calculating current weights for each position
-    for stock in context.stocks:
-        if ((context.target_allocation.get(stock, None) is None) or context.target_allocation[stock] == 0):
-            continue
-        current_holdings = data.current(stock, 'close') * context.portfolio.positions[stock].amount
-        weight = current_holdings/value
-        growth = float(weight) / float(context.target_allocation[stock])
-        # if weights of any position exceed THRESHOLD, trigger rebalance
-        if (growth >= 1 + threshold or growth <= 1 - threshold):
-            rebalance_fn(context, data, verbose)
-            break
-    # print("No need to rebalance!")
+    arr = list(zip(*[(pData[0], pf.utils.extract_rets_pos_txn_from_zipline(pData[1])[0]) for pData in perf]))
+    names_arr = arr[0]
+    returns_arr = arr[1]
+
+    ax = plot_rolling_returns_multiple(returns_arr, factor_returns, names_arr=names_arr)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 
 def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, ax=None, names_arr=None):
@@ -589,41 +480,6 @@ def seriesToDataFrame(recorded_data):
     return df
 
 
-def analyze(context, perf):
-
-    # https://matplotlib.org/tutorials/intermediate/gridspec.html
-    gs1 = gridspec.GridSpec(2, 1)
-    gs1.update(hspace=2.5)  # set the spacing between axes.
-
-    # fig = plt.figure()
-    # ax1 = fig.add_subplot(211)
-    ax1 = plt.subplot(gs1[0])
-    perf.portfolio_value.plot(ax=ax1)
-    ax1.set_title('portfolio value in $')
-
-    # Retrieve extra parameters that were stored
-    # df_allocation = seriesToDataFrame(perf['allocation'])
-    df_weights = seriesToDataFrame(perf['curr_weights'])
-
-    # ax2 = fig.add_subplot(212)
-    # ax2 = plt.subplot(gs1[1])
-    # df_allocation.plot.area(ax=ax2)
-    # ax2.set_title('Portfolio target allocation')
-    # # ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-
-    #
-    ax3 = plt.subplot(gs1[1])
-    df_weights.plot.area(ax=ax3)
-    ax3.set_title('Portfolio weights')
-    ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-    plt.show()
-
-    # export to pickle for debugging
-    import pickle
-    with open('data.pickle', 'wb') as f:
-        pickle.dump(perf['curr_weights'], f)
-
-
 def rebalance_o(context, data, verbose):
     # allocate(context, data)
     if verbose: print("-"*30)
@@ -669,8 +525,9 @@ def rebalance(context, data, verbose):
     # Just use order_target to rebalance?
     for stock in context.stocks:
         current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
-        order_target_percent(stock, context.target_allocation[stock])
-        if verbose: print("%s: %.5f -> %.5f" % (stock, current_weight, context.target_allocation[stock]))
+        if stock in context.target_allocation:
+            order_target_percent(stock, context.target_allocation[stock])
+            if verbose: print("%s: %.5f -> %.5f" % (stock, current_weight, context.target_allocation[stock]))
 
     # record for use in analysis
     record_allocation(context)

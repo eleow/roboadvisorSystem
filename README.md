@@ -19,7 +19,7 @@
     <br />
     <br />
     <br />
-    <a href="https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/BasicTest.ipynb">View Jupyter sample</a>
+    <a href="https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/Examples.ipynb">View Jupyter sample</a>
     ·
     <a href="https://github.com/eleow/roboadvisorSystem/issues">Report Bug</a>
     ·
@@ -51,7 +51,7 @@ Examples of most functionalities can be found in the Jupyter Notebook, [Examples
 
 ### Plot Markowitz bullet
 
-Plotting the Markowitz bullet is a simple one-liner (using default settings) by just providing _prices_, which is a pandas DataFrame containing adjusted closing prices of the asset (each row is a date and each column is a ticker/id)
+Plotting the Markowitz bullet is a *simple one-liner* (using default settings) by just providing _prices_, which is a pandas DataFrame containing adjusted closing prices of the asset (each row is a date and each column is a ticker/id)
 
 ```python
 from utils import generate_markowitz_bullet
@@ -64,7 +64,7 @@ This will generate the following:
 * Markowitz Efficient Frontier, represented by a dotted line
 * Optimum portfolio based on maximum Sharpe ratio (red star)
 * Optimum portfolio based on minimum volatility (green star)
-* random portfolios, plotted with color map applied based on Sharpe ratio
+* Random portfolios, plotted with color map applied based on Sharpe ratio
 
 ![Markowitz Bullet](_misc/MarkowitzBullet.png)
 
@@ -74,7 +74,7 @@ Distributed under the [MIT License](LICENSE)
 
 ## Acknowledgements
 
-Aesthetic style of plotting Markowitz bullet is borrowed from [Medium Article by Ricky Kim](https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f)
+Aesthetic style of plotting Markowitz bullet is borrowed from article by [Ricky Kim](https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f)
 
 Markowitz optimisation is provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
 

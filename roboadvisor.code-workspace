@@ -10,7 +10,9 @@
 			"SystemCode\\frontend\\smartportfolioWeb\\src\\templates",
 			"SystemCode\\frontend\\smartportfolioWeb\\src\\Makefile",
 			"SystemCode\\backend\\_download.py",
-			"SystemCode\\backend\\ed_algo.py"
+			"SystemCode\\backend\\ed_algo.py",
+			"NUS\\reports\\final\\main.tex",
+			"NUS\\reports\\final\\references.bib"
 		]
 	}
 }
