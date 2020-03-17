@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 from zipline import run_algorithm
 from zipline.api import schedule_function, date_rules, time_rules
 from zipline.api import commission, set_commission, symbols, order
+from zipline.api import slippage, set_slippage
 from utils import optimal_portfolio, get_mu_sigma, hrp_portfolio
-from utils import rebalance, record_allocation, record_current_weights
+from utils import rebalance, record_allocation, record_current_weights, record_social_media
 from utils import seriesToDataFrame, initialize_portfolio
+import pandas as pd
 
 
 ###############################################################################
@@ -17,9 +19,26 @@ class Algorithm(ABC):
     '''Base Algorithm class
     '''
     def __init__(self, name, verbose=False,
-                 grp='VANGUARD', subgrp='CORE_SERIES',
-                 threshold=0.05, stocks=None, country='US', trading_platform=''
+                 grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
+                 stocks=None, country='US', trading_platform=''
                  ):
+        """
+        Arguments:
+            name (str) - name of algorithm
+            verbose (bool, optional) - True to show more messages, defaults to False
+            grp (str, optional) - Portfolio group for universe (default VANGUARD)
+            subgrp (str, optional) - Portfolio subgroup for universe (default CORE_SERIES)
+            threshold (float, optional) - Distance deviation threshold from target allocation.
+                If actual allocation is greater than the threshold, rebalance will be triggered
+            stocks (list, optional) - List of stocks to consider in the universe.
+                If None, universe will be determined by grp and subgrp (default None)
+            country (str, optional) - Country where stocks are. This is used for commission models (default 'US')
+            trading_platform (str, optional) - Trading platform for stocks. This is used for commission models
+            rebalance_freq (str, optional) - How often to call rebalance function.
+                Upon calling function, allocations will be compared with target allocations, and if it exceeds threshold,
+                then rebalance will occur. Valid values are 'daily', 'weekly', 'monthly' (default 'monthly')
+
+        """
         self.name = name
         self.verbose = verbose
         self.grp = grp
@@ -28,8 +47,10 @@ class Algorithm(ABC):
         self.stocks = stocks
         self.country = country
         self.trading_platform = trading_platform
+        self.rebalance_freq = rebalance_freq
 
         self.all_portfolios = {}
+        self.get_social_media()
 
     @abstractmethod
     def initialize(self, context):
@@ -41,44 +62,110 @@ class Algorithm(ABC):
         # Set Commission model
         self.initialize_commission(country=self.country, platform=self.trading_platform)
 
+        # Set Slippage model
+        set_slippage(slippage.FixedSlippage(spread=0.0))  # assume spread of 0
+
+        # Schedule Rebalancing check
+        rebalance_check_freq = date_rules.month_end()
+        if (self.rebalance_freq == 'daily'): rebalance_check_freq = date_rules.every_day()
+        elif (self.rebalance_freq == 'weekly'): rebalance_check_freq = date_rules.week_end()
+
+        if self.verbose: print('Rebalance checks will be done %s' % self.rebalance_freq)
+        schedule_function(
+            func=self.before_trading_starts,
+            date_rule=rebalance_check_freq,
+            time_rule=time_rules.market_open(hours=1))
+
+        # record daily weights
+        schedule_function(
+            func=record_current_weights,
+            date_rule=date_rules.every_day(),
+            time_rule=time_rules.market_open(hours=1),
+        )
+
+        # # define target exposure
+        # context.exposure = ExposureMngr(target_leverage=1.0,
+        #                                 target_long_exposure_perc=1.0,
+        #                                 target_short_exposure_perc=0.0)
+
     @abstractmethod
     def handle_data(self, context, data):
         pass
 
+    @abstractmethod
+    def before_trading_starts(self, context, data):
+        # retrieve sentiment for yesterday (lag 1)
+
+        df = self.social_media
+        yesterday_date = context.datetime - pd.Timedelta(days=1)
+        yesterday_social_media = df.iloc[df.index.get_loc(yesterday_date, method='nearest')]
+        context.buzz = yesterday_social_media['buzz']
+        context.sentiment = yesterday_social_media['sentiments12']
+        record_social_media(context)
+
+        # print("TODAY:", context.datetime, "YESTERDAY:", yesterday_date, "SENTIMENT:", yesterday_sentiment)
+
+    def get_social_media(self, filepath='./data/twitter/sentiments_overall_daily.csv'):
+        # self.sentiment = pd.read_csv(filepath, index_col='date')
+        self.social_media = pd.read_csv(filepath, usecols=['date', 'buzz', 'finBERT', 'sentiments12'])
+        self.social_media['date'] = pd.to_datetime(self.social_media['date'], format="%Y-%m-%d", utc=True)
+        self.social_media.set_index('date', inplace=True, drop=True)
+
+        # return pd.read_csv(filepath)
+
     def analyze(self, context, perf):
-        # https://matplotlib.org/tutorials/intermediate/gridspec.html
-        gs1 = gridspec.GridSpec(2, 1)
-        gs1.update(hspace=2.5)  # set the spacing between axes.
-
-        # fig = plt.figure()
-        # ax1 = fig.add_subplot(211)
-        ax1 = plt.subplot(gs1[0])
-        perf.portfolio_value.plot(ax=ax1)
-        ax1.set_title('Portfolio value in $')
-
-        # Retrieve extra parameters that were stored
-        # df_allocation = seriesToDataFrame(perf['allocation'])
-        df_weights = seriesToDataFrame(perf['curr_weights'])
-
-        # ax2 = fig.add_subplot(212)
-        # ax2 = plt.subplot(gs1[1])
-        # df_allocation.plot.area(ax=ax2)
-        # ax2.set_title('Portfolio target allocation')
-        # # ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-
-        #
-        ax3 = plt.subplot(gs1[1])
-        df_weights.plot.area(ax=ax3)
-        ax3.set_title('Portfolio weights')
-        ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-        plt.show()
 
         # export to pickle for debugging
         import pickle
         with open('data.pickle', 'wb') as f:
-            pickle.dump(perf['curr_weights'], f)
+            pickle.dump(perf, f)
 
-    def initialize_commission(self, country='SG', platform='vickers'):
+        # https://matplotlib.org/tutorials/intermediate/gridspec.html
+        gs1 = gridspec.GridSpec(3, 1)
+        gs1.update(hspace=2.0)  # set the spacing between axes.
+
+        # returns, positions, transactions = pf.utils.extract_rets_pos_txn_from_zipline(perf)
+        # pf.create_full_tear_sheet(returns,
+        #                           positions=positions,
+        #                           transactions=transactions,
+        #                           )
+
+        # fig = plt.figure()
+        # ax1 = fig.add_subplot(211)
+        ax1a = plt.subplot(gs1[0])
+        ax1b = ax1a.twinx()
+        # perf.portfolio_value.columns = ['PV']
+        perf.portfolio_value.plot(ax=ax1a, color='r', legend=None)  # portfolio value
+        pd.DataFrame(perf['cash']).plot(ax=ax1b, color='b', legend=None)  # cash
+        ax1a.set_ylabel('Portfolio value')
+        ax1a.yaxis.label.set_color('red')
+        ax1b.set_ylabel('Cash')
+        ax1b.yaxis.label.set_color('blue')
+        ax1a.set_title('Portfolio value and cash in $')
+
+        # Social media scores
+        ax2a = plt.subplot(gs1[1])
+        ax2b = ax2a.twinx()
+        pd.DataFrame(perf['sentiment']).plot(ax=ax2a, color='r', legend=None)
+        pd.DataFrame(perf['buzz']).plot(ax=ax2b, color='b', legend=None)
+        ax2a.set_ylabel('Sentiment')
+        ax2a.yaxis.label.set_color('red')
+        ax2b.set_ylabel('Buzz')
+        ax2b.yaxis.label.set_color('blue')
+        ax2a.set_title('Sentiment and Buzz')
+        # ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
+        # Plot actual weights over time
+        # df_allocation = seriesToDataFrame(perf['allocation'])
+        df_weights = seriesToDataFrame(perf['curr_weights'])
+        ax3 = plt.subplot(gs1[2])
+        df_weights.plot.area(ax=ax3)
+        ax3.set_title('Portfolio weights')
+        ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
+        plt.show()
+
+    def initialize_commission(self, country='US', platform='IB'):
         """Sets commissions
 
         See https://www.quantopian.com/help#ide-commission and
@@ -87,8 +174,11 @@ class Algorithm(ABC):
         if (country == 'SG'):
             set_commission(SGCommission(platform=platform))
         else:
-            # TODO
-            pass
+            # IB broker for US is the top stock broker in US
+            # https://brokerchooser.com/best-brokers/best-stock-brokers-in-the-us
+            # Typical commission is USD 0.005 per share, minimum per order USD 1.00
+            # https://www1.interactivebrokers.com/en/index.php?f=1590&p=stocks
+            set_commission(commission.PerShare(cost=0.005, min_trade_cost=1))
 
     def trigger_rebalance_on_threshold(self, context, data, rebalance_fn, threshold, verbose):
         """Trigger a rebalance if actual and target allocation differs by 'threshold'
@@ -121,10 +211,10 @@ class CRBAlgorithm(Algorithm):
     - Rebalance triggered when target allocation differs from current allocation by more than a threshold
     '''
 
-    def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05,
-                 stocks=None, country='US', trading_platform='', name='algo_constant_rebalanced',
+    def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
+                 stocks=None, country='US', trading_platform='', name='constant_rebalanced',
                  risk_level=0):
-        super(CRBAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, stocks, country, trading_platform)
+        super(CRBAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform)
         self.risk_level = risk_level  # 1-9 for Tax Efficient Series, 0-10 otherwise
 
     def initialize(self, context):
@@ -147,12 +237,6 @@ class CRBAlgorithm(Algorithm):
         context.target_allocation = context.target_allocation_initial
         context.bought = False
 
-        schedule_function(
-            func=self.before_trading_starts,
-            date_rule=date_rules.every_day(),
-            time_rule=time_rules.market_open(hours=1),
-        )
-
     def handle_data(self, context, data):
         # if not context.bought:
         #     for stock in context.stocks:
@@ -167,6 +251,7 @@ class CRBAlgorithm(Algorithm):
         context.bought = True
 
     def before_trading_starts(self, context, data):
+        super(CRBAlgorithm, self).before_trading_starts(context, data)
 
         # ensure stocks exist. If does not, then we set that weight to zero, and normalise based on non-zero weights
         context.target_allocation = dict([t for t in context.target_allocation_initial.items() if t[0].start_date < context.datetime])
@@ -174,7 +259,7 @@ class CRBAlgorithm(Algorithm):
         context.target_allocation = dict([(t[0], t[1]/sum_weights) for t in context.target_allocation.items()])
 
         self.trigger_rebalance_on_threshold(context, data, rebalance, self.threshold, self.verbose)
-        record_current_weights(context, data)  # record current weights
+        # record_current_weights(context, data)  # record current weights
 
 
 class OptAlgorithm(Algorithm):
@@ -190,12 +275,12 @@ class OptAlgorithm(Algorithm):
     - 'hrp' - optimise using HRP
 
     '''
-    def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05,
-                 stocks=None, country='US', trading_platform='', name='algo_mpt_optimisation',
+    def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
+                 stocks=None, country='US', trading_platform='', name='optimsation',
                  collect_before_trading=True, history=252, frequency=252,
                  returns_model='mean_historical_return', risk_model='ledoit_wolf', objective='max_sharpe'
                  ):
-        super(OptAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, stocks, country, trading_platform)
+        super(OptAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform)
         # a = self.algo
         self.collect_before_trading = collect_before_trading
         self.history = history
@@ -214,19 +299,9 @@ class OptAlgorithm(Algorithm):
         context.target_allocation = dict(zip(context.stocks, [0]*len(context.stocks)))  # initialise target allocations to zero
 
         context.tick = 0
-        schedule_function(
-            func=self.before_trading_starts,
-            date_rule=date_rules.month_end(),
-            time_rule=time_rules.market_open(hours=1))
-
-        # record daily weights
-        schedule_function(
-            func=record_current_weights,
-            date_rule=date_rules.every_day(),
-            time_rule=time_rules.market_open(hours=1),
-        )
 
     def before_trading_starts(self, context, data):
+        super(OptAlgorithm, self).before_trading_starts(context, data)
         self.allocate(context, data)  # get new optimum weights
         self.trigger_rebalance_on_threshold(context, data, rebalance, self.threshold, self.verbose)  # trigger rebalance if exceed threshold
 
@@ -263,7 +338,7 @@ class OptAlgorithm(Algorithm):
             for stock in context.stocks_that_exist:
                 amount = (context.target_allocation[stock] * context.portfolio.cash) / data.current(stock, 'price')
                 # only buy if cash is allocated
-                if (amount != 0):
+                if (amount > 0):
                     order(stock, int(amount))
                 if self.verbose: print("buying " + str(int(amount)) + " shares of " + str(stock))
 
@@ -273,8 +348,10 @@ class OptAlgorithm(Algorithm):
     def get_weights(self, prices):
 
         if self.objective == "hrp":
+            # Hierarchical Risk Parity
             weights = hrp_portfolio(prices)
         else:
+            # Modern Portfolio Theory
             mu, S = get_mu_sigma(prices, self.returns_model, self.risk_model, self.frequency)
             weights, _, _ = optimal_portfolio(mu, S, self.objective, get_entire_frontier=False)
 

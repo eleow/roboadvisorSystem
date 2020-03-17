@@ -329,7 +329,7 @@ def rand_weights(n):
     return k / sum(k)
 
 
-def print_table_from_perf_array(perf, factor_returns=None):
+def print_table_from_perf_array(perf, factor_returns=None, show_baseline=False):
     APPROX_BDAYS_PER_MONTH = 21
     # APPROX_BDAYS_PER_YEAR = 252
 
@@ -356,6 +356,14 @@ def print_table_from_perf_array(perf, factor_returns=None):
 
     # get peformance stats
     perf_stats_arr = []
+
+    # show baseline as one of the columns
+    if show_baseline:
+        perf_stats_arr.append(
+            perf_stats(factor_returns, factor_returns=factor_returns)
+        )
+        names_arr = ['Baseline'] + list(names_arr)
+
     for i in range(len(returns_arr)):
         perf_stats_arr.append(
             perf_stats(returns_arr[i], factor_returns=factor_returns)
@@ -442,7 +450,7 @@ def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, 
         is_cum_returns = cum_rets
         if (i == 0 and factor_returns is not None):
             cum_factor_returns = ep.cum_returns(factor_returns[cum_rets.index], 1.0)
-            cum_factor_returns.plot(lw=2, color='gray', label=factor_returns.name, alpha=0.60, ax=ax)
+            cum_factor_returns.plot(lw=1, color='gray', label=factor_returns.name, alpha=0.60, ax=ax)
 
         is_cum_returns.plot(lw=1, alpha=0.6, label=returns.name, ax=ax)
 
@@ -456,6 +464,11 @@ def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, 
     ax.xaxis.set_minor_locator(months)
 
     return ax
+
+
+def record_social_media(context):
+    # print('recording social media')
+    record(buzz=context.buzz, sentiment=context.sentiment)
 
 
 def record_allocation(context):
@@ -508,7 +521,10 @@ def rebalance_o(context, data, verbose):
             if (int(amount) == 0):
                 continue
             if verbose: print("Selling " + str(int(amount * -1)) + " shares of " + str(stock))
+            print("-"*20)
+            print("BO ", context.portfolio.cash)
             order(stock, int(amount))
+            print("AO ", context.portfolio.cash)
 
     # Buy after selling
     for stock in context.stocks:

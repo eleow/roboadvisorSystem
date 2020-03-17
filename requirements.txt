@@ -6,3 +6,5 @@ yahoofinancials
 pyfolio
 PyPortfolioOpt
 scikit-learn
+pytorch
+pytorch-pretrained-bert==0.6.2

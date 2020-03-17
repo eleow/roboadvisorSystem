@@ -35,7 +35,8 @@
 
 ### Installation
 
-* Clone this repo:
+* Before cloning the repository, make sure you have git-lfs installed on your environment. The instructions to do so can be found [here](https://help.github.com/en/github/managing-large-files/installing-git-large-file-storage)
+* Then clone this repo:
 
 ```sh
 git clone https://github.com/eleow/roboadvisorSystem.git
@@ -47,7 +48,13 @@ git clone https://github.com/eleow/roboadvisorSystem.git
 
 ### Examples
 
-Examples of most functionalities can be found in the Jupyter Notebook, [Examples](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/BasicTest.ipynb)
+Examples of most functionalities can be found in the Jupyter Notebook, [Examples](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks/Examples.ipynb)
+
+### Examples for Sentiment Analysis
+
+Sentiment analysis example is found in the Jupyter Notebook, [Example_Sentiments](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks/Examples_Sentiments.ipynb)
+
+Tweets obtained via ["Twitter-Get-Old-Tweets-Scraper-master"](https://github.com/eleow/Twitter-Get-Old-Tweets-Scraper) using Jupyter Notebook, [GetTwitterData.ipynb](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks/GetTwitterData.ipynb). Note that after retrieving a certain number of tweets (14000++), Twitter will block the request with "Sorry, die Anzahl deiner Anfragen ist begrenzt" which means "Sorry, the number of your requests is limited". Then just adjust argument "--until" with the earliest date where it failed and rerun the script with a different IP address, and save to a new file.
 
 ### Plot Markowitz bullet
 

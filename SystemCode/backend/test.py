@@ -1,7 +1,8 @@
 import pickle
 import pandas as pd
-import numpy as np
+# import numpy as np
 import matplotlib.pyplot as plt
+
 
 def seriesToDataFrame(recorded_data):
     m = []
@@ -18,7 +19,7 @@ def seriesToDataFrame(recorded_data):
     return df
 
 
-allocation = pickle.load(open("./SystemCode/backend/data.pickle", "rb"))
+allocation = pickle.load(open("data.pickle", "rb"))
 print()
 
 # m = []
