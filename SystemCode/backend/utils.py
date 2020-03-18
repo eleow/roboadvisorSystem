@@ -471,13 +471,13 @@ def record_social_media(context):
     record(buzz=context.buzz, sentiment=context.sentiment)
 
 
-def record_allocation(context):
-    """Record allocation data for use in analysis
-    """
-    # targets = list([(k.symbol, np.asscalar(v)) for k, v in context.target_allocation.items()])
-    targets = list([(k.symbol, v) for k, v in context.target_allocation.items()])
-    record(allocation=targets, cash=context.portfolio.cash)
-    # print(type(targets), targets)
+# def record_allocation(context):
+#     """Record allocation data for use in analysis
+#     """
+#     # targets = list([(k.symbol, np.asscalar(v)) for k, v in context.target_allocation.items()])
+#     targets = list([(k.symbol, v) for k, v in context.target_allocation.items()])
+#     record(allocation=targets, cash=context.portfolio.cash)
+#     # print(type(targets), targets)
 
 
 def record_current_weights(context, data):
@@ -489,6 +489,8 @@ def record_current_weights(context, data):
         current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
         weights.append((stock.symbol, current_weight))
 
+    targets = list([(k.symbol, v) for k, v in context.target_allocation.items()])
+    record(allocation=targets, cash=context.portfolio.cash)
     record(curr_weights=weights)
 
 
@@ -507,40 +509,40 @@ def seriesToDataFrame(recorded_data):
     return df
 
 
-def rebalance_o(context, data, verbose):
-    # allocate(context, data)
-    if verbose: print("-"*30)
+# def rebalance_o(context, data, verbose):
+#     # allocate(context, data)
+#     if verbose: print("-"*30)
 
-    # Sell first so that got more cash
-    for stock in context.stocks:
-        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
-        target_weight = context.target_allocation[stock]
-        distance = current_weight - target_weight
-        if (distance > 0):
-            amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
-            if (int(amount) == 0):
-                continue
-            if verbose: print("Selling " + str(int(amount * -1)) + " shares of " + str(stock))
-            print("-"*20)
-            print("BO ", context.portfolio.cash)
-            order(stock, int(amount))
-            print("AO ", context.portfolio.cash)
+#     # Sell first so that got more cash
+#     for stock in context.stocks:
+#         current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+#         target_weight = context.target_allocation[stock]
+#         distance = current_weight - target_weight
+#         if (distance > 0):
+#             amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
+#             if (int(amount) == 0):
+#                 continue
+#             if verbose: print("Selling " + str(int(amount * -1)) + " shares of " + str(stock))
+#             print("-"*20)
+#             print("BO ", context.portfolio.cash)
+#             order(stock, int(amount))
+#             print("AO ", context.portfolio.cash)
 
-    # Buy after selling
-    for stock in context.stocks:
-        current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
-        target_weight = context.target_allocation[stock]
-        distance = current_weight - target_weight
-        if (distance < 0):
-            amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
-            if (int(amount) == 0):
-                continue
-            if verbose: print("Buying " + str(int(amount)) + " shares of " + str(stock))
-            order(stock, int(amount))
-    if verbose: print('-'*30)
+#     # Buy after selling
+#     for stock in context.stocks:
+#         current_weight = (data.current(stock, 'close') * context.portfolio.positions[stock].amount) / context.portfolio.portfolio_value
+#         target_weight = context.target_allocation[stock]
+#         distance = current_weight - target_weight
+#         if (distance < 0):
+#             amount = -1 * (distance * context.portfolio.portfolio_value) / data.current(stock, 'close')
+#             if (int(amount) == 0):
+#                 continue
+#             if verbose: print("Buying " + str(int(amount)) + " shares of " + str(stock))
+#             order(stock, int(amount))
+#     if verbose: print('-'*30)
 
-    # record for use in analysis
-    record_allocation(context)
+#     # record for use in analysis
+#     # record_allocation(context)
 
 
 def rebalance(context, data, verbose):
@@ -560,4 +562,4 @@ def rebalance(context, data, verbose):
             if verbose: print("%s: %.5f -> %.5f" % (stock, current_weight, context.target_allocation[stock]))
 
     # record for use in analysis
-    record_allocation(context)
+    # record_allocation(context)

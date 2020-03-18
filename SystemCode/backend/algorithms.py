@@ -7,7 +7,7 @@ from zipline.api import schedule_function, date_rules, time_rules
 from zipline.api import commission, set_commission, symbols, order
 from zipline.api import slippage, set_slippage
 from utils import optimal_portfolio, get_mu_sigma, hrp_portfolio
-from utils import rebalance, record_allocation, record_current_weights, record_social_media
+from utils import rebalance, record_current_weights, record_social_media
 from utils import seriesToDataFrame, initialize_portfolio
 import pandas as pd
 
@@ -76,11 +76,11 @@ class Algorithm(ABC):
             date_rule=rebalance_check_freq,
             time_rule=time_rules.market_open(hours=1))
 
-        # record daily weights
+        # record daily weights at the end of each day
         schedule_function(
             func=record_current_weights,
             date_rule=date_rules.every_day(),
-            time_rule=time_rules.market_open(hours=1),
+            time_rule=time_rules.market_close()
         )
 
         # # define target exposure
@@ -105,7 +105,7 @@ class Algorithm(ABC):
 
         # print("TODAY:", context.datetime, "YESTERDAY:", yesterday_date, "SENTIMENT:", yesterday_sentiment)
 
-    def get_social_media(self, filepath='./data/twitter/sentiments_overall_daily.csv'):
+    def get_social_media(self, filepath='../data/twitter/sentiments_overall_daily.csv'):
         # self.sentiment = pd.read_csv(filepath, index_col='date')
         self.social_media = pd.read_csv(filepath, usecols=['date', 'buzz', 'finBERT', 'sentiments12'])
         self.social_media['date'] = pd.to_datetime(self.social_media['date'], format="%Y-%m-%d", utc=True)
@@ -144,21 +144,21 @@ class Algorithm(ABC):
         ax1a.set_title('Portfolio value and cash in $')
 
         # Social media scores
-        ax2a = plt.subplot(gs1[1])
-        ax2b = ax2a.twinx()
-        pd.DataFrame(perf['sentiment']).plot(ax=ax2a, color='r', legend=None)
-        pd.DataFrame(perf['buzz']).plot(ax=ax2b, color='b', legend=None)
-        ax2a.set_ylabel('Sentiment')
-        ax2a.yaxis.label.set_color('red')
-        ax2b.set_ylabel('Buzz')
-        ax2b.yaxis.label.set_color('blue')
-        ax2a.set_title('Sentiment and Buzz')
+        # ax2a = plt.subplot(gs1[1])
+        # ax2b = ax2a.twinx()
+        # pd.DataFrame(perf['sentiment']).plot(ax=ax2a, color='r', legend=None)
+        # pd.DataFrame(perf['buzz']).plot(ax=ax2b, color='b', legend=None)
+        # ax2a.set_ylabel('Sentiment')
+        # ax2a.yaxis.label.set_color('red')
+        # ax2b.set_ylabel('Buzz')
+        # ax2b.yaxis.label.set_color('blue')
+        # ax2a.set_title('Sentiment and Buzz')
         # ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
         # Plot actual weights over time
         # df_allocation = seriesToDataFrame(perf['allocation'])
         df_weights = seriesToDataFrame(perf['curr_weights'])
-        ax3 = plt.subplot(gs1[2])
+        ax3 = plt.subplot(gs1[1])
         df_weights.plot.area(ax=ax3)
         ax3.set_title('Portfolio weights')
         ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
@@ -202,6 +202,49 @@ class Algorithm(ABC):
                 rebalance_fn(context, data, verbose)
                 break
         # print("No need to rebalance!")
+
+
+class TradingSignalAlgorithm(Algorithm):
+    '''Trades based on a trading signal
+    '''
+
+    def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
+                 stocks=None, country='US', trading_platform='', name='constant_rebalanced',
+                 trading_signal=None, lookback=7):
+        super(TradingSignalAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform)
+        self.get_trading_signal = trading_signal  # function to call to retrieve trading signal for a given date
+        self.lookback = lookback
+
+    def initialize(self, context):
+        super(TradingSignalAlgorithm, self).initialize(context)
+
+        # set universe
+        context.stocks = self.all_portfolios[self.grp][self.subgrp]['stocks'] if self.stocks is None else symbols(*self.stocks)
+        if self.verbose: print(context.stocks)
+
+        # initialise weights and target allocation
+        context.weights = False
+        context.target_allocation = dict(zip(context.stocks, [0]*len(context.stocks)))  # initialise target allocations to zero
+
+    def handle_data(self, context, data):
+        pass
+
+    def before_trading_starts(self, context, data):
+        super(TradingSignalAlgorithm, self).before_trading_starts(context, data)
+        self.allocate(context, data)  # get new optimum weights
+        self.trigger_rebalance_on_threshold(context, data, rebalance, self.threshold, self.verbose)  # trigger rebalance if exceed threshold
+
+    def allocate(self, context, data):
+        # Filter for stocks that exist 'today'
+        stocks_that_exist = ([s for s in context.stocks if s.start_date < context.datetime])
+
+        # get buy/sell/hold signal (-1 to 1) and adjust target_allocation accordingly
+        for s in stocks_that_exist:
+            delta = self.get_trading_signal(s, context.datetime, self.lookback)
+            context.target_allocation[s] += delta
+            context.target_allocation[s] = min(max(context.target_allocation[s], 0), 1)
+
+        context.stocks_that_exist = stocks_that_exist
 
 
 class CRBAlgorithm(Algorithm):
@@ -292,7 +335,7 @@ class OptAlgorithm(Algorithm):
     def initialize(self, context):
         super(OptAlgorithm, self).initialize(context)
 
-        # set universe and risk level
+        # set universe
         context.stocks = self.all_portfolios[self.grp][self.subgrp]['stocks'] if self.stocks is None else symbols(*self.stocks)
         if self.verbose: print(context.stocks)
         context.weights = False
@@ -343,7 +386,7 @@ class OptAlgorithm(Algorithm):
                 if self.verbose: print("buying " + str(int(amount)) + " shares of " + str(stock))
 
             # record for use in analysis
-            record_allocation(context)
+            # record_allocation(context)
 
     def get_weights(self, prices):
 
