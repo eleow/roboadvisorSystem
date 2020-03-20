@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 
 {% load staticfiles %}
+{% load thumbnail %}
 {% load crispy_forms_tags %}
+{% load humanize %}
 
-{% block title %}{{ block.super }}Home{% endblock %}
+{% block title %}{{ block.super }}Portfolio{% endblock %}
 
 {% block navbar-left %}
 
@@ -11,17 +13,54 @@
 
 {% block navbar-right %}
     {% include "loggedin_navbar.html" with active_link="portfolio" %}
+    {{ block.super }}
 {% endblock %}
 
-{% block splash %}
-
-{% endblock splash %}
 
 {% block container %}
 
-{% endblock container %}
+<div class="container profile-head">
+  <div class="row">
+    <div class="col-sm-10">
+      <h1>Portfolio Summary</h1>
+      for {{ user.get_full_name }}
+    </div>
+    <div class="col-sm-2"><img title="profile picture" class="img-circle img-responsive" src="{% thumbnail user.profile.picture|default:'default_profile.png' 140x140 crop %}">
+    </div>
+  </div>
+</div>
+
+<div class="container profile-body">
+    <div class="row">
+      <div class="col-sm-4">
+        <ul class="list-group">
+          <li class="list-group-item text-right"><span class="pull-left"><strong>Account:</strong></span> {{ account|floatformat:2|intcomma }} </li>
+          <li class="list-group-item text-right"><span class="pull-left"><strong>Asset Transfers:</strong></span> {{ user.profile.asset_transfers|floatformat:2|intcomma }} </li>
+          <li class="list-group-item text-right"><span class="pull-left"><strong>Earnings:</strong></span> {{ earnings|floatformat:2|intcomma }} </li>
+        </ul>
+        <ul class="list-group">
+            <li class="list-group-item text-right"><span class="pull-left"><strong>Gross Asset Value:</strong></span> {{ user.profile.gross_asset_value|floatformat:2|intcomma }} </li>
+            <li class="list-group-item text-right"><span class="pull-left"><strong>Available Cash:</strong></span> {{ user.profile.avail_cash|floatformat:2|intcomma }} </li>
+          </ul>
+          <a href="#" class="btn btn-info">View Details</a>
+          <a href="#" class="btn btn-info">Add/Withdraw Funds</a>
+      </div>
+      <div class="col-sm-8">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+              Trends
+          </div>
+          <div class="panel-body">
+              <strong>Performance</strong>: XXX
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
 
 {% block scripts %}
-<script src="{% static 'site/js/site.js' %}"></script>
+<!-- <script src="{% static 'site/js/site.js' %}"></script> -->
 {% endblock scripts %}
 

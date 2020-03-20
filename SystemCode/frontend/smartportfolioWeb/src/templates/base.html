@@ -69,18 +69,18 @@
                 <li><a href="{% url 'admin:index' %}">Admin</a></li>
                 {% endif %}
 
-                {% include "loggedin_navbar.html" with active_link="home" %}
                 <!-- <li class="dropdown">
                     <a href="#" class="dropdown-toggle profile-menu" data-toggle="dropdown">
-			<img src="{% thumbnail user.profile.picture|default:'default_profile.png' 30x30 crop %}" alt="" />
-			{{ user.get_full_name|truncatechars:20 }}
-			<span class="caret"></span>
-		    </a>
+                        <img src="{% thumbnail user.profile.picture|default:'default_profile.png' 30x30 crop %}"
+                            alt="" />
+                        {{ user.get_full_name|truncatechars:20 }}
+                        <span class="caret"></span>
+                    </a>
 
-                  <ul class="dropdown-menu" role="menu">
-                    <li><a href="{% url 'profiles:show_self' %}">Profile</a></li>
-                    <li><a href="{% url 'accounts:logout' %}">Logout</a></li>
-                  </ul>
+                    <ul class="dropdown-menu" role="menu">
+                        <li><a href="{% url 'profiles:show_self' %}">Profile</a></li>
+                        <li><a href="{% url 'accounts:logout' %}">Logout</a></li>
+                    </ul>
                 </li> -->
               {% endif %}
             {% endblock %}

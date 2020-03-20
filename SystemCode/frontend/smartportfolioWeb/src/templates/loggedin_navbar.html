@@ -1,3 +1,17 @@
+{% load thumbnail %}
 <li {% if active_link == "portfolio" %}class="active"{% endif %}><a href="{% url 'portfolio' %}"><i class="fa fa-fw fa-line-chart"></i>Portfolio</a></li>
 <li {% if active_link == "about" %}class="active"{% endif %}><a href="{% url 'about' %}">About</a></li>
-<li ><a href="{% url 'accounts:logout' %}"><i class="fa fa-fw fa-sign-out"></i>Log Out</a></li>
+<!-- <li ><a href="{% url 'accounts:logout' %}"><i class="fa fa-fw fa-sign-out"></i>Log Out</a></li> -->
+<li {% if active_link == "profile" %}class="active dropdown" {% else %} class="dropdown" {% endif %} >
+    <a href="#" class="dropdown-toggle profile-menu" data-toggle="dropdown">
+        <img src="{% thumbnail user.profile.picture|default:'default_profile.png' 30x30 crop %}"
+            alt="" />
+        {{ user.get_full_name|truncatechars:20 }}
+        <span class="caret"></span>
+    </a>
+
+    <ul class="dropdown-menu" role="menu">
+        <li><a href="{% url 'profiles:show_self' %}">Profile</a></li>
+        <li><a href="{% url 'accounts:logout' %}">Logout</a></li>
+    </ul>
+</li>

@@ -68,10 +68,14 @@ dfn {
   font-style: italic;
 }
 h1 {
-  font-size: 2em;
-  margin: 0.67em 0;
-  text-shadow: -1px 0 black, 0 2px black, 2px 0 black, 0 -1px black;
+    font-size: 2em;
+    margin: 0.67em 0;
+    /* text-shadow: -1px 0 black, 0 2px black, 2px 0 black, 0 -1px black; */
 }
+h1.shadow {
+text-shadow: -1px 0 black, 0 2px black, 2px 0 black, 0 -1px black;
+}
+
 mark {
   background: #ff0;
   color: #000;

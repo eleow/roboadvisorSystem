@@ -5,6 +5,11 @@
 
 {% block title %}{{ block.super }}Profile{% endblock %}
 
+{% block navbar-right %}
+    {% include "loggedin_navbar.html" with active_link="profile" %}
+    {{ block.super }}
+{% endblock %}
+
 {% block container %}
 
 <div class="container profile-head">

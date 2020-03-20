@@ -26,6 +26,9 @@ front:
 front-refresh:
 	make -C SystemCode/frontend/smartportfolioWeb/src refresh
 
+front-migrate:
+	make -C SystemCode/frontend/smartportfolioWeb/src migrate
+
 back-run:
 	make -C SystemCode/backend/ run
 
