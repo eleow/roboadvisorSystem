@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% load staticfiles %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ block.super }}Home{% endblock %}
+
+{% block navbar-left %}
+
+{% endblock %}
+
+{% block navbar-right %}
+    {% include "loggedin_navbar.html" with active_link="portfolio" %}
+{% endblock %}
+
+{% block splash %}
+
+{% endblock splash %}
+
+{% block container %}
+
+{% endblock container %}
+
+{% block scripts %}
+<script src="{% static 'site/js/site.js' %}"></script>
+{% endblock scripts %}
+

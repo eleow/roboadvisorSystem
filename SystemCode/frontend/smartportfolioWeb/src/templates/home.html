@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% load staticfiles %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ block.super }}Home{% endblock %}
+
+{% block navbar-left %}
+  {% if not user.is_authenticated %}
+    {% include "_navbar.html" with active_link="home" %}
+  {% endif %}
+{% endblock %}
+
+{% block navbar-right %}
+  {% if not user.is_authenticated %}
+<a class="btn btn-default" href="{% url 'accounts:login' %}" role="button">Log in</a>
+<a class="btn btn-primary" href="{% url 'accounts:signup' %}" role="button">Sign up</a>
+  {% else %}
+    {{ block.super }}
+  {% endif %}
+{% endblock %}
+
+{% block splash %}
+  <div class="jumbotron jumbotron-carousel corporate-jumbo">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8 col-sm-8">
+          <h1>{% include "_brandname.html" %}</h1>
+          <p class="important">{% include '_tagline.html' %}</p>
+          {% if not user.is_authenticated %}
+	          <a class="btn btn-primary" href="{% url 'accounts:signup' %}" role="button">Sign up for Free!</a>
+          {% endif %}
+        </div>
+        <div class="col-md-4 col-sm-4">
+
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock splash %}
+
+{% block container %}
+<!-- Benefits of the Django application -->
+<a id="about"></a>
+
+<div class="container">
+  <div class="row">
+    <div class="col-lg-4">
+      <h2>Simple</h2>
+      <p>Just fill up a questionarie and we will recommend what's best for you</p>
+      <!-- <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p> -->
+    </div>
+    <div class="col-lg-4">
+      <h2>Smart</h2>
+      <p>Taking into account your risk profile, we will utilise a deep learning algorithm to recommend and rebalance your portfolio according to a well-defined risk-return framework</p>
+      <!-- <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p> -->
+    </div>
+  </div>
+</div>
+
+{% endblock container %}
+
+{% block scripts %}
+<script src="{% static 'site/js/site.js' %}"></script>
+{% endblock scripts %}
+

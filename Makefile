@@ -23,8 +23,11 @@ clean:
 front:
 	make -C SystemCode/frontend/smartportfolioWeb/src run
 
+front-refresh:
+	make -C SystemCode/frontend/smartportfolioWeb/src refresh
+
 back-run:
 	make -C SystemCode/backend/ run
 
 back-download:
-	make -C SystemCode/backend/ download 
+	make -C SystemCode/backend/ download

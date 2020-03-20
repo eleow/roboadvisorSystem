@@ -12,7 +12,9 @@
 			"SystemCode\\backend\\_download.py",
 			"SystemCode\\backend\\ed_algo.py",
 			"NUS\\reports\\final\\main.tex",
-			"NUS\\reports\\final\\references.bib"
+			"NUS\\reports\\final\\references.bib",
+			"SystemCode\\frontend\\smartportfolioWeb\\src\\smartportfolioWeb\\urls.py",
+			"SystemCode\\frontend\\smartportfolioWeb\\src\\smartportfolioWeb\\views.py"
 		]
 	}
 }
