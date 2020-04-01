@@ -9,6 +9,7 @@
 <div class="container form-box">
   <div class="text-center">
     <h2>{% block form_heading %}{% endblock %}</h2>
+    {% block extra_contents %}{% endblock %}
   </div>
   {% block form %}
   {% endblock %}

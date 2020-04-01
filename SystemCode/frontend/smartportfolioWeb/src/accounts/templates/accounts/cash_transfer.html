@@ -1,0 +1,16 @@
+{% extends "accounts/auth_base.html" %}
+
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block title %}{{ block.super }}Add/Withdraw Funds{% endblock %}
+{% block extra_contents %}
+<h4>Currently there is ${{ cash|floatformat:2|intcomma }} in your account</h4>
+{% endblock %}
+
+{% block form_heading %}Add/Withdraw Funds{% endblock %}
+
+{% block form %}
+  {% crispy form %}
+{% endblock form %}
+

@@ -1,0 +1,11 @@
+{% load crispy_forms_field %}
+
+<div class="form-group">
+  <div class="custom-control custom-checkbox">
+    {% crispy_field field 'class' 'custom-control-input' %}
+    <label for="toggle">
+        <span class="on">{{ label1 }}</span>
+        <span class="off">{{ label2 }}</span>
+      </label>
+  </div>
+</div>

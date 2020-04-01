@@ -1,5 +1,4 @@
 from __future__ import unicode_literals
-
 from django.urls import reverse_lazy
 from django.views import generic
 from django.contrib.auth import get_user_model
@@ -9,13 +8,68 @@ from authtools import views as authviews
 from braces import views as bracesviews
 from django.conf import settings
 from . import forms
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 
 User = get_user_model()
 
 
+@method_decorator(login_required(login_url='/login'), name='dispatch')
+class CashTransferView(generic.FormView):
+    template_name = "accounts/cash_transfer.html"
+    success_url = reverse_lazy("portfolio")  # Redirect to Portfolio page on successful transfer (invoked via super().form_valid(form))
+    form_class = forms.CashTransferForm
+
+    def form_valid(self, form):
+        user = self.request.user
+        asset = user.profile
+
+        asset_transfers = form.cleaned_data["asset_transfers"]
+        bWithdraw = form.cleaned_data["withdraw"]
+        sTransfer = 'Withdrawal' if bWithdraw else 'Deposit'
+
+        if bWithdraw:
+            # check if we have that much cash to withdraw
+            if (asset.avail_cash < asset_transfers):
+                form._errors["asset_transfers"] = [f"You can only withdraw up to {asset.avail_cash}"]
+                return super().form_invalid(form)
+
+            asset_transfers *= -1
+
+        asset.asset_transfers += asset_transfers
+        asset.avail_cash += asset_transfers
+        asset.save()
+        messages.success(self.request, f"Cash {sTransfer} of ${abs(asset_transfers):,.2f} successful!")
+
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        print('!!! Form invalid')
+
+        # user = self.request.user
+        # asset = user.profile
+
+        # asset.asset_transfers = 0
+        # asset.avail_cash = 0
+        # # asset.gross_asset_value = 0
+        # asset.save()
+
+        return super().form_invalid(form)
+
+    # https://stackoverflow.com/questions/19687375/django-formview-does-not-have-form-context
+    def get_context_data(self, **kwargs):
+        user = self.request.user
+        asset = user.profile
+
+        context = super(CashTransferView, self).get_context_data(**kwargs)
+        context['cash'] = asset.avail_cash
+        return context
+
+
+# if user already logged in, AnonymousRequiredMixin will automatically redirect to settings.LOGIN_REDIRECT_URL
 class LoginView(bracesviews.AnonymousRequiredMixin, authviews.LoginView):
     template_name = "accounts/login.html"
-    success_url = reverse_lazy("portfolio")  # Redirect to Home on successful login (invoked via super().form_valid(form))
+    success_url = reverse_lazy("portfolio")  # Redirect to Portfolio page on successful login (invoked via super().form_valid(form))
     form_class = forms.LoginForm
 
     def form_valid(self, form):

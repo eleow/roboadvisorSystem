@@ -34,16 +34,16 @@
     <div class="row">
       <div class="col-sm-4">
         <ul class="list-group">
-          <li class="list-group-item text-right"><span class="pull-left"><strong>Account:</strong></span> {{ account|floatformat:2|intcomma }} </li>
-          <li class="list-group-item text-right"><span class="pull-left"><strong>Asset Transfers:</strong></span> {{ user.profile.asset_transfers|floatformat:2|intcomma }} </li>
-          <li class="list-group-item text-right"><span class="pull-left"><strong>Earnings:</strong></span> {{ earnings|floatformat:2|intcomma }} </li>
+          <li class="list-group-item text-right"><span class="pull-left"><strong title="{{ account_title }}">Account:</strong></span> {{ account|floatformat:2|intcomma }} </li>
+          <li class="list-group-item text-right"><span class="pull-left"><strong title="{{ asset_title }}">Asset Transfers:</strong></span> {{ user.profile.asset_transfers|floatformat:2|intcomma }} </li>
+          <li class="list-group-item text-right"><span class="pull-left"><strong title="{{ earnings_title }} ">Earnings:</strong></span> {{ earnings|floatformat:2|intcomma }} </li>
         </ul>
         <ul class="list-group">
-            <li class="list-group-item text-right"><span class="pull-left"><strong>Gross Asset Value:</strong></span> {{ user.profile.gross_asset_value|floatformat:2|intcomma }} </li>
-            <li class="list-group-item text-right"><span class="pull-left"><strong>Available Cash:</strong></span> {{ user.profile.avail_cash|floatformat:2|intcomma }} </li>
+            <li class="list-group-item text-right"><span class="pull-left"><strong title="{{ gross_asset_title }} ">Gross Asset Value:</strong></span> {{ user.profile.gross_asset_value|floatformat:2|intcomma }} </li>
+            <li class="list-group-item text-right"><span class="pull-left"><strong title ="{{ cash_title }} ">Available Cash:</strong></span> {{ user.profile.avail_cash|floatformat:2|intcomma }} </li>
           </ul>
           <a href="#" class="btn btn-info">View Details</a>
-          <a href="#" class="btn btn-info">Add/Withdraw Funds</a>
+          <a href="{% url 'accounts:cash_transfer' %}" class="btn btn-info">Add/Withdraw Funds</a>
       </div>
       <div class="col-sm-8">
         <div class="panel panel-default">

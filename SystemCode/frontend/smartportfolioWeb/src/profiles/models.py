@@ -31,7 +31,6 @@ class BaseProfile(models.Model):
     gross_asset_value = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     avail_cash = models.DecimalField(max_digits=20, decimal_places=2, default=0)
 
-
     # https://pypi.org/project/django-picklefield/
     portfolio = PickledObjectField(null=True, blank=True)    # lazy method. Just store entire portfolio details as a pickle
 

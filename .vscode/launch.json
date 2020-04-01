@@ -11,6 +11,56 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${fileDirname}"
-        }
+        },
+        {
+          "name": "Tweets Scraper",
+          "type": "python",
+          "request": "launch",
+          "program": "${file}",
+          "console": "integratedTerminal",
+          "cwd": "${fileDirname}",
+          "args": [
+            "--username", "benzinga",
+            "--max-tweets", "10000000",
+            "--query", "",
+            "--output-file", "tweets_benzinga.csv",
+            "--since", "2010-01-01"
+          ]
+        },
+        {
+          "name": "TEST Tweets Scraper",
+          "type": "python",
+          "request": "launch",
+          "program": "${file}",
+          "console": "integratedTerminal",
+          "cwd": "${fileDirname}",
+          "args": [
+            "--username", "cnbc",
+            "--max-tweets", "203",
+            "--query", "",
+            "--filename", "tweets_test.csv",
+            "--until", "2010-01-01"
+          ]
+      },
+      {
+        "name": "Django",
+        "type": "python",
+        "request": "launch",
+        "stopOnEntry": false,
+        // "pythonPath": "${config.python.pythonPath}",
+        "cwd": "${workspaceRoot}/SystemCode/frontend/smartportfolioWeb/src/",
+        "program": "manage.py",
+        "args": [
+            "runserver",
+            "--no-color",
+        ],
+        "django": true,
+        "debugOptions": [
+            "WaitOnAbnormalExit",
+            "WaitOnNormalExit",
+            "RedirectOutput",
+            "DjangoDebugging"
+        ]
+    }
     ]
 }
