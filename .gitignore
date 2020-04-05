@@ -142,3 +142,6 @@ _misc/
 NUS/
 SystemCode/frontend/smartportfolioWeb/src/media/profile_pics/
 SystemCode/frontend/smartportfolioWeb/src/media/**/*_crop.png
+/SystemCode/frontend/smartportfolioWeb/src/static/mobirise_carousel
+* - Copy*.*
+~$*.*

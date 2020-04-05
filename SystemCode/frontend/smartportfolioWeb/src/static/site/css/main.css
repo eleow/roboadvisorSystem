@@ -133,6 +133,10 @@ body>.navbar-transparent {
     padding: 120px 0;
 }
 
+.text-page_s {
+    padding: 20px 0;
+}
+
 #map-outer {
     height: 440px;
     padding: 40px 20px;
@@ -183,3 +187,51 @@ body>.navbar-transparent {
 p.important {
     text-shadow: -1px 0 black, 0 2px black, 2px 0 black, 0 -1px black;
 }
+
+table.portfolio {
+    text-align: left;
+    background: white;
+}
+
+td.port_name {
+    width: 20%;
+}
+
+table.current_portfolio {
+    background: white;
+    border-style: solid;
+    border-collapse: collapse;
+    display: inline-table;
+}
+
+table.current_portfolio th,tr {
+    border: 1px solid black;
+}
+
+table.current_portfolio tr td.buttons {
+    text-align: left;
+    padding: 5px;
+    background: grey;
+}
+
+table.current_portfolio td.returns {
+    padding: 5px 10px 0px 10px;
+}
+
+table.current_portfolio td.risk_low {
+    background: green;
+    color:white;
+}
+
+table.current_portfolio td.risk_medium {
+    background: yellow;
+    color:black;
+}
+
+table.current_portfolio td.risk_high {
+    background: red;
+    color:white;
+}
+
+.ui-dialog .ui-state-error { padding: .3em; }
+.validateTips { border: 1px solid transparent; padding: 0.3em; }

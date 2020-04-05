@@ -85,6 +85,8 @@ Aesthetic style of plotting Markowitz bullet is borrowed from article by [Ricky 
 
 Markowitz optimisation is provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
 
+The front-end UI for the robo advisor system is built using the [Django Web Framework](https://www.djangoproject.com/)
+
 <div>Robot icon made by <a href="https://www.flaticon.com/authors/photo3idea-studio" title="photo3idea_studio">photo3idea_studio</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>
 
 

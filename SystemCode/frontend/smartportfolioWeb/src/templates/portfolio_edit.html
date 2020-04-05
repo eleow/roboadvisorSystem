@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% load staticfiles %}
+{% load humanize %}
+
+{% block title %}{{ block.super }}Add/Edit Portfolios{% endblock %}
+
+{% block styles %}
+    {{ block.super }}
+    <!-- <link rel="stylesheet" type="text/css" href="{% static 'site/css/jquery.dataTables.css' %}"> -->
+    <link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/dataTables.bootstrap.min.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'site/vendor/jquery-ui-overcast/jquery-ui.min.css' %}">
+
+
+{% endblock styles %}
+
+
+{% block navbar-left %}
+
+{% endblock %}
+
+{% block navbar-right %}
+    {% include "loggedin_navbar.html" with active_link="portfolio" %}
+    {{ block.super }}
+{% endblock %}
+
+{% block container %}
+<div id="sec1" class="text-page_s">
+    <div class="container">
+        <div class="row">
+          <div class="col-md-12 text-center">
+            <h1>Portfolios</h1>
+          </div>
+        </div>
+      </div>
+</div>
+
+<div id="sec2" class="text-page_s">
+    <div class="container">
+        <div class="row">
+          <div class="col-md-12 text-center">
+            <h2>Current Portfolios</h1>
+                {% if current_portfolios.items|length == 0 %}
+                <h4>There are no portfolios to display</h4>
+                {% else %}
+                {% for id, item in current_portfolios.items %}
+                <table class="current_portfolio" id="portfolio_{{id}}" pid="{{id}}" pname="{{item.name}}" cval="{{item.current_value|floatformat:2}}">
+                    <thead>
+                        <tr><th colspan="3">{{ item.name }}</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr><td class="risk_{{item.risk|lower}}" colspan="3">{{ item.risk }} risk</td></tr>
+                    <tr>
+                        <td class="returns">2 yr returns</td>
+                        <td class="returns">1 yr returns</td>
+                        <td class="returns">Last 30 days</td>
+                    </tr>
+                    <tr>
+                        <td>{{ item.2yr_returns|floatformat:2 }}%</td>
+                        <td>{{ item.1yr_returns|floatformat:2 }}%</td>
+                        <td>{{ item.last_30_days|floatformat:2 }}%</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px 10px 0px 10px;" colspan="2">Total invested:</td>
+                        <td>{{ item.total_invested|floatformat:2|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">Current value:</td>
+                        <td>{{ item.current_value|floatformat:2|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">Earnings:</td>
+                        <td>{{ item.earnings|floatformat:2|intcomma }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="buttons">
+                            <button class='buy'>Buy</button>
+                            <button class='sell'>Sell</button>
+                        </td>
+
+                    </tr>
+                </tbody></table>
+                {% endfor %}
+                {% endif %}
+          </div>
+        </div>
+      </div>
+</div>
+
+<div id="sec2" class="text-page_s">
+    <div class="container">
+        <div class="row">
+          <div class="col-md-12 text-center">
+            <h2>Available Portfolios</h1>
+            <table id="avail_portfolios" width="100%" class="table portfolio">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>NAME</th>
+                        <th>DESCRIPTION</th>
+                        <th>TYPE</th>
+                        <th>RISK</th>
+                        <th>1YR RETURNS</th>
+                        <th>Buy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k, item in avail_portfolios.items %}
+                    <tr>
+                        <td>{{ k}}</td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.type}}</td>
+                        <td>{{ item.risk}}</td>
+                        <td>{{ item.1yr_returns}}</td>
+                        <td></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>ID</th>
+                        <th>NAME</th>
+                        <th>DESCRIPTION</th>
+                        <th>TYPE</th>
+                        <th>RISK</th>
+                        <th>1YR RETURNS</th>
+                        <th>Buy</th>
+                    </tr>
+                </tfoot>
+            </table>
+
+          </div>
+        </div>
+      </div>
+</div>
+
+<div id="dialog_buy_portfolio" title="Buy Portfolio">
+    <p class="validateTips">The maximum that you can buy is ${{ cash|floatformat:2|intcomma }}</p>
+
+    <form method="post">
+      <!-- <h4>The maximum that you can invest is ${{ cash|floatformat:2|intcomma }}</h4> -->
+      <p>Enter amount to buy</p>
+      <fieldset>
+        <div id="div_id_buy_portfolio" class="form-group">
+            <div class="controls ">
+                <div class="input-group">
+                    <span class="input-group-addon"><i class="fa fa-money"></i></span>
+                    <input
+                        type="number" name="buy_portfolio" value="0" step="100"
+                        placeholder="Enter amount to buy" class="numberinput form-control" required=""
+                        id="id_buy_portfolio">
+                </div>
+            </div>
+        </div>
+
+        <!-- Allow form submission with keyboard without duplicating the dialog button -->
+        <input type="submit" tabindex="-1" style="position:absolute; top:-1000px">
+      </fieldset>
+    </form>
+</div>
+
+<div id="dialog_sell_portfolio" title="Reduce Portfolio">
+    <p class="validateTips">The maximum that you can sell is 0</p>
+
+    <form method="post">
+      <p>Enter amount to sell </p>
+      <fieldset>
+        <div id="div_id_sell_portfolio" class="form-group">
+            <div class="controls ">
+                <div class="input-group">
+                    <span class="input-group-addon"><i class="fa fa-money"></i></span>
+                    <input
+                        type="number" name="sell_portfolio" value="0" step="100"
+                        placeholder="Enter amount to sell" class="numberinput form-control" required=""
+                        id="id_sell_portfolio">
+                </div>
+            </div>
+        </div>
+
+        <!-- Allow form submission with keyboard without duplicating the dialog button -->
+        <input type="submit" tabindex="-1" style="position:absolute; top:-1000px">
+      </fieldset>
+    </form>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script type="text/javascript" charset="utf8" src="{% static 'site/vendor/jquery-ui-overcast/jquery-ui.js' %}"></script>
+<script type="text/javascript" charset="utf8" src="{% static 'site/js/jquery.dataTables.js' %}"></script>
+<script>
+    $(document).ready( function () {
+        var $avail_portfolio_table = $('#avail_portfolios').DataTable({
+            // "columnsDef": [
+            //     { "targets": -1, "data": null, "defaultContent": "<button>Buy!</button>"}
+            // ]
+            "columns": [
+                {"data": "id", "visible": false},
+                {"data": "name"},
+                null, null, null, null,
+                {
+                "data": null,
+                "defaultContent": "<button class='buy'>Buy</button>"
+                }
+            ]
+        });
+
+        $(".buy").button({
+            icon: "ui-icon-plusthick",
+            showLabel: false
+        })
+        $(".sell").button({
+            icon: "ui-icon-minusthick",
+            showLabel: false
+        })
+
+        $amt_buy = $("#id_buy_portfolio");
+        $v_buy = $("#dialog_buy_portfolio p.validateTips");
+        v_buy_default = "The maximum that you can buy is ${{ cash|floatformat:2|intcomma }}";
+
+        $amt_sell = $("#id_sell_portfolio");
+        $v_sell= $("#dialog_sell_portfolio p.validateTips");
+        v_sell_default = "The maximum that you can sell is ${{ cash|floatformat:2|intcomma }}";
+        max_sell = 0;
+
+        allFields = $( [] ).add($amt_buy).add($amt_sell);
+        // $tips = $(".validateTips");
+
+        function updateTips($id, t) {
+            $id
+                .text( t )
+                .addClass( "ui-state-highlight" );
+            setTimeout(function() {
+                $id.removeClass( "ui-state-highlight", 1500 );
+            }, 500 );
+        }
+
+        function checkAmt($id, o, min, max) {
+         if (o.val() <= 0 || o.val() > max) {
+             o.addClass("ui-state-error");
+             updateTips($id, "Amount to invest must be between $" + min.toLocaleString() + " and $" + max.toLocaleString() + ".");
+             return false;
+         }
+         return true;
+        }
+
+        function buyPortfolio() {
+            $(".ui-dialog").css("z-index", "9999 !important");
+            var valid = true;
+            allFields.removeClass( "ui-state-error" );
+            valid = valid && checkAmt($v_buy, $amt_buy, 0, {{ cash }});
+            var id = $dialog_buy.data("id");
+
+            if (valid) {
+                $(location).attr('href', "/portfolio_edit/buy/" + id + "/" + $amt_buy.val())
+                $dialog_buy.dialog("close");
+                //
+            }
+            return valid;
+        }
+        function sellPortfolio() {
+            $(".ui-dialog").css("z-index", "9999 !important");
+            var valid = true;
+            allFields.removeClass( "ui-state-error" );
+            valid = valid && checkAmt($v_sell, $amt_sell, 0, max_sell);
+            var id = $dialog_sell.data("id");
+
+            if (valid) {
+                $(location).attr('href', "/portfolio_edit/sell/" + id + "/" + $amt_sell.val())
+                $dialog_buy.dialog("close");
+                //
+            }
+            return valid;
+        }
+
+        $dialog_buy = $("#dialog_buy_portfolio").dialog({
+            autoOpen: false,
+            height: 400,
+            width: 350,
+            modal: true,
+            dialogClass: 'dialog_portfolio',
+            buttons: {
+                "Buy Portfolio": buyPortfolio,
+                Cancel: function() {
+                    $dialog_buy.dialog( "close" );
+                    $v_buy.text(v_buy_default);
+                }
+            },
+            close: function() {
+                form_buy[0].reset();
+                $v_buy.text(v_buy_default);
+                allFields.removeClass( "ui-state-error" );
+            }
+        });
+        form_buy = $dialog_buy.find("form").on("submit", function( event ) {
+            event.preventDefault();
+            buyPortfolio();
+        });
+
+        $dialog_sell = $("#dialog_sell_portfolio").dialog({
+            autoOpen: false,
+            height: 400,
+            width: 350,
+            modal: true,
+            dialogClass: 'dialog_portfolio',
+            buttons: {
+                "Sell Portfolio": sellPortfolio,
+                Cancel: function() {
+                    $dialog_sell.dialog( "close" );
+                    $v_sell.text("");
+                }
+            },
+            close: function() {
+                form_sell[0].reset();
+                allFields.removeClass( "ui-state-error" );
+                $v_sell.text("");
+            }
+        });
+        form_sell = $dialog_sell.find("form").on("submit", function( event ) {
+            event.preventDefault();
+            sellPortfolio();
+        });
+
+        // delegated event handler - lower overhead compared to directly add 'on-click' listener to every button
+        // see https://api.jquery.com/on/
+        $('table.portfolio tbody').on('click', 'button.buy', function() {
+            // data = $avail_portfolio_table.row($(this).parents('tr')).data();
+            var currentRow = $(this).closest("tr");
+            var data =  $avail_portfolio_table.row(currentRow).data();
+
+            console.log(data['name']);
+
+            // Set title, open dialog and move dialog to the top
+            $dialog_buy.data("id", data['id']);
+            $dialog_buy.dialog({title: data['name']}).dialog("open").dialog("moveToTop");
+        });
+        $('table.current_portfolio tbody').on('click', 'button.buy', function() {
+            // Set title, open dialog and move dialog to the top
+            pid = $(this).closest("table").attr("pid");
+            pname = $(this).closest("table").attr("pname");
+
+            $dialog_buy.data("id", pid);
+            $dialog_buy.dialog({title: pname}).dialog("open").dialog("moveToTop");
+        });
+
+        $('table.current_portfolio tbody').on('click', 'button.sell', function() {
+            // Set title, open dialog and move dialog to the top
+            pid = $(this).closest("table").attr("pid");
+            pname = $(this).closest("table").attr("pname");
+            cval = $(this).closest("table").attr("cval");
+            max_sell = Number(cval);
+
+            $v_sell.text("The maximum that you can sell is $" + max_sell.toLocaleString());
+            $dialog_sell.data("id", pid);
+            $dialog_sell.dialog({title: pname}).dialog("open").dialog("moveToTop");
+        });
+
+    } );
+
+</script>
+{% endblock scripts %}
