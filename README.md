@@ -42,7 +42,8 @@
 git clone https://github.com/eleow/roboadvisorSystem.git
 ```
 
-* Install prerequisites in "requirements.txt"
+* For backend code, install prerequisites in "requirements.txt"
+* For frontend code, install prerequisites in "\SystemCode\frontend\smartportfolioWeb\requirements.txt"
 
 ## Usage
 
@@ -83,7 +84,9 @@ Distributed under the [MIT License](LICENSE)
 
 Aesthetic style of plotting Markowitz bullet is borrowed from article by [Ricky Kim](https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f)
 
-Markowitz optimisation is provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
+Markowitz optimisation implementation is provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
+
+Genetic Algorithm implementation is provided by [Distributed Evolutionary Algorithms in Python (DEAP)](https://deap.readthedocs.io/en/master/)
 
 The front-end UI for the robo advisor system is built using the [Django Web Framework](https://www.djangoproject.com/)
 

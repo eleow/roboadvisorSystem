@@ -50,7 +50,7 @@ class Algorithm(ABC):
         self.rebalance_freq = rebalance_freq
 
         self.all_portfolios = {}
-        self.get_social_media()
+        # self.get_social_media()
 
     @abstractmethod
     def initialize(self, context):
@@ -96,18 +96,19 @@ class Algorithm(ABC):
     def before_trading_starts(self, context, data):
         # retrieve sentiment for yesterday (lag 1)
 
-        df = self.social_media
-        yesterday_date = context.datetime - pd.Timedelta(days=1)
-        yesterday_social_media = df.iloc[df.index.get_loc(yesterday_date, method='nearest')]
-        context.buzz = yesterday_social_media['buzz']
-        context.sentiment = yesterday_social_media['sentiments12']
-        record_social_media(context)
+        # df = self.social_media
+        # yesterday_date = context.datetime - pd.Timedelta(days=1)
+        # yesterday_social_media = df.iloc[df.index.get_loc(yesterday_date, method='nearest')]
+        # context.buzz = yesterday_social_media['buzz']
+        # context.sentiment = yesterday_social_media['sent12']
+        # record_social_media(context)
 
         # print("TODAY:", context.datetime, "YESTERDAY:", yesterday_date, "SENTIMENT:", yesterday_sentiment)
+        pass
 
     def get_social_media(self, filepath='../data/twitter/sentiments_overall_daily.csv'):
         # self.sentiment = pd.read_csv(filepath, index_col='date')
-        self.social_media = pd.read_csv(filepath, usecols=['date', 'buzz', 'finBERT', 'sentiments12'])
+        self.social_media = pd.read_csv(filepath, usecols=['date', 'buzz', 'finBERT', 'sent12'])
         self.social_media['date'] = pd.to_datetime(self.social_media['date'], format="%Y-%m-%d", utc=True)
         self.social_media.set_index('date', inplace=True, drop=True)
 
@@ -135,7 +136,7 @@ class Algorithm(ABC):
         ax1a = plt.subplot(gs1[0])
         ax1b = ax1a.twinx()
         # perf.portfolio_value.columns = ['PV']
-        perf.portfolio_value.plot(ax=ax1a, color='r', legend=None)  # portfolio value
+        perf.portfolio_value.plot(ax=ax1a, color='r', legend=None)  # portfolio value (cash + sum(shares * price))
         pd.DataFrame(perf['cash']).plot(ax=ax1b, color='b', legend=None)  # cash
         ax1a.set_ylabel('Portfolio value')
         ax1a.yaxis.label.set_color('red')
@@ -210,10 +211,13 @@ class TradingSignalAlgorithm(Algorithm):
 
     def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
                  stocks=None, country='US', trading_platform='', name='constant_rebalanced',
-                 trading_signal=None, lookback=7):
+                 trading_signal=None, lookback=7, initial_weights=[1], normalise_weights=False, **kwargs):
         super(TradingSignalAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform)
         self.get_trading_signal = trading_signal  # function to call to retrieve trading signal for a given date
         self.lookback = lookback
+        self.initial_weights = initial_weights
+        self.normalise_weights = normalise_weights
+        self.kwargs = kwargs
 
     def initialize(self, context):
         super(TradingSignalAlgorithm, self).initialize(context)
@@ -224,7 +228,7 @@ class TradingSignalAlgorithm(Algorithm):
 
         # initialise weights and target allocation
         context.weights = False
-        context.target_allocation = dict(zip(context.stocks, [0]*len(context.stocks)))  # initialise target allocations to zero
+        context.target_allocation = dict(zip(context.stocks, self.initial_weights))  # initialise target allocations
 
     def handle_data(self, context, data):
         pass
@@ -240,9 +244,14 @@ class TradingSignalAlgorithm(Algorithm):
 
         # get buy/sell/hold signal (-1 to 1) and adjust target_allocation accordingly
         for s in stocks_that_exist:
-            delta = self.get_trading_signal(s, context.datetime, self.lookback)
-            context.target_allocation[s] += delta
+            signal = self.get_trading_signal(s, context.datetime, self.lookback, **self.kwargs)
+            context.target_allocation[s] += signal
             context.target_allocation[s] = min(max(context.target_allocation[s], 0), 1)
+
+        # normalise target_allocations
+        if (self.normalise_weights):
+            sum_allocation = sum(context.target_allocation.values())
+            context.target_allocation = {k: v/sum_allocation for k, v in context.target_allocation.items()}
 
         context.stocks_that_exist = stocks_that_exist
 

@@ -17,13 +17,25 @@ str2bool = lambda x: (str(x).lower() == 'true')
 parser.add_argument("-m", "--mode", default='1', help="0-download data, 1-run backtest")
 parser.add_argument("-v", "--visualise", type=str2bool, default=True, help="Bool indicating whether to visualise results")
 parser.add_argument("-s", "--start_date", default='2015-01-05', help="Start-date of data in %y-%m-%d format")
-parser.add_argument("-e", "--end_date", default='2019-12-30', help="End-date of data in %y-%m-%d format")
+parser.add_argument("-e", "--end_date", default='2020-04-05', help="End-date of data in %y-%m-%d format")
+
+
+SPDR_sector_ETFs = 'XLE,XLRE,XLF,XLV,XLC,XLI,XLY,XLP,XLB,XLK,XLU'
+ALL_WEATHER_ETFs = 'VTI,TLT,IEF,GLD,DBC'
+VANGUARD = 'VTI,VXUS,BND,BNDX'
+INDEX = 'SPY'
+
+with open("data/sti.txt", "r") as f:
+    STI = f.readlines()
+STI = ",".join(STI).replace("\n", "")
 
 # specific arguments for mode==0 (Download)
 parser.add_argument("-f", "--freq", default='daily', help="Only for mode 0. Data frequency. 'daily', 'weekly' or 'monthly'")
 # parser.add_argument("-t", "--ticker", default='NVDA,AAPL,FB,NFLX', help="Only for mode 0. Ticker(s) to get data for")
-# parser.add_argument("-t", "--ticker", default='VTI,VXUS,BND,BNDX', help="Only for mode 0. Ticker(s) to get data for")
-parser.add_argument("-t", "--ticker", default='VTI,TLT,IEF,GLD,DBC', help="Only for mode 0. Ticker(s) to get data for")
+parser.add_argument("-t", "--ticker", default=VANGUARD, help="Only for mode 0. Ticker(s) to get data for")
+# parser.add_argument("-t", "--ticker", default=ALL_WEATHER_ETFs, help="Only for mode 0. Ticker(s) to get data for")
+# parser.add_argument("-t", "--ticker", default=SPDR_sector_ETFs, help="Only for mode 0. Ticker(s) to get data for")
+
 
 # specific arguments for mode==1 (Backtest)
 parser.add_argument("-b", "--bundle", default='robo-advisor_US', help="Only for mode 1. Data bundle to use")
@@ -75,17 +87,16 @@ elif (args['mode'] == '1'):
         plt.legend(loc=0)
         plt.show()
 
-
     # Run the algorithm from within the py file
     perfData = run_algorithm(start=start,
-                                end=end,
-                                initialize=initialize,
-                                # analyze=analyze,
-                                capital_base=capital_base,
-                                handle_data=handle_data,
-                                environ=os.environ,
-                                bundle=bundle
-                                )
+                             end=end,
+                             initialize=initialize,
+                             # analyze=analyze,
+                             capital_base=capital_base,
+                             handle_data=handle_data,
+                             environ=os.environ,
+                             bundle=bundle
+                             )
 
 
     # # visualise data
