@@ -152,8 +152,3 @@ elif (args['mode'] == '1'):
     # Volatility - The standard deviation of the portfolio’s returns.
     pf.show_perf_stats(returns, factor_returns=bm_returns)
     plt.show()
-
-
-
-
-

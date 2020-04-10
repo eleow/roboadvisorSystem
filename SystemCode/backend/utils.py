@@ -1,6 +1,8 @@
 '''
     Utility functions to support trading algorithms
 
+    Created by Edmund Leow
+
 '''
 import numpy as np
 import pandas as pd
@@ -207,7 +209,7 @@ def hrp_portfolio(prices):
     return weights
 
 
-def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True):
+def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True, **kwargs):
     """Solve for optimal portfolio. Wrapper for pypfopt functions
 
     Arguments:
@@ -223,6 +225,7 @@ def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True):
     # (Note that optimum weights might be slightly different depending on whether CLA or EfficientFrontier was used)
     Optimiser = CLA if get_entire_frontier else EfficientFrontier
     op = Optimiser(mu, S)
+    # risk_aversion = kwargs.get("risk_aversion", 1)  # only for max quadratic utility
 
     if (objective is None):
         # Get weights for both max_sharpe and min_volatility
@@ -231,11 +234,46 @@ def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True):
         opt_weights.append(op.clean_weights())
         op.min_volatility()
         opt_weights.append(op.clean_weights())
+
+        # ef = EfficientFrontier(mu, S)
+        # ef.max_quadratic_utility(risk_aversion)
+        # opt_weights.append(ef.clean_weights())
     else:
         if (objective == 'max_sharpe'):
             op.max_sharpe()
         elif (objective == 'min_volatility'):
             op.min_volatility()
+        elif (objective == 'efficient_risk'):
+            target_volatility = kwargs.get("target_volatility", None)
+            if target_volatility is None:
+                print("Error: You have to specify the target_volatility!")
+                return None, None, None, None
+            else:
+                try:
+                    op.efficient_risk(target_volatility)
+                except ValueError:
+                    # could not solve based on target_volatility, we try lookup table instead
+                    cla = CLA(mu, S)
+                    cla.max_sharpe()
+                    ef_returns, ef_risks, ef_weights = cla.efficient_frontier(points=300)
+
+                    lookup_v_w = dict(zip(ef_risks, ef_weights))
+                    lookup_v_w = OrderedDict(sorted(lookup_v_w.items()))
+                    w = lookup_v_w[min(lookup_v_w.keys(), key=lambda key: abs(key-target_volatility))]
+                    w = [i[0] for i in w]  # flatten
+                    return w, None, None
+
+        elif (objective == 'efficient_return'):
+            target_return = kwargs.get("target_return", None)
+            if target_return is None:
+                print("Error: You have to specify the target_return!")
+                return None, None, None, None
+            else:
+                op.efficient_return(target_return)
+
+        # elif (objective == 'max_quadratic_utility'):
+        #     op.max_quadratic_utility(risk_aversion)
+        #     # print("Using MAX_QUADRATIC UTILITY")
 
         opt_weights = op.clean_weights()
 
@@ -319,6 +357,8 @@ def generate_markowitz_bullet(prices, returns_model='mean_historical_return', ri
         ax.set_xlabel('annualised volatility')
         ax.set_ylabel('annualised returns')
         ax.legend()
+
+        plt.style.use('default')
 
     return r_volatility, r_returns, opt_volatility, opt_returns
 

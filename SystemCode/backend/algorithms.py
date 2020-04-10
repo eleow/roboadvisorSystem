@@ -1,3 +1,10 @@
+'''
+    Algorithms for trading using zipline
+
+    Created by Edmund Leow
+
+'''
+
 from abc import ABC, abstractmethod
 import os
 import matplotlib.gridspec as gridspec
@@ -7,9 +14,10 @@ from zipline.api import schedule_function, date_rules, time_rules
 from zipline.api import commission, set_commission, symbols, order
 from zipline.api import slippage, set_slippage
 from utils import optimal_portfolio, get_mu_sigma, hrp_portfolio
-from utils import rebalance, record_current_weights, record_social_media
+from utils import rebalance, record_current_weights
 from utils import seriesToDataFrame, initialize_portfolio
 import pandas as pd
+from pypfopt.base_optimizer import portfolio_performance
 
 
 ###############################################################################
@@ -20,7 +28,7 @@ class Algorithm(ABC):
     '''
     def __init__(self, name, verbose=False,
                  grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
-                 stocks=None, country='US', trading_platform=''
+                 stocks=None, country='US', trading_platform='', **kwargs
                  ):
         """
         Arguments:
@@ -50,6 +58,7 @@ class Algorithm(ABC):
         self.rebalance_freq = rebalance_freq
 
         self.all_portfolios = {}
+        self.kwargs = kwargs
         # self.get_social_media()
 
     @abstractmethod
@@ -212,12 +221,12 @@ class TradingSignalAlgorithm(Algorithm):
     def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
                  stocks=None, country='US', trading_platform='', name='constant_rebalanced',
                  trading_signal=None, lookback=7, initial_weights=[1], normalise_weights=False, **kwargs):
-        super(TradingSignalAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform)
+        super(TradingSignalAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform, **kwargs)
         self.get_trading_signal = trading_signal  # function to call to retrieve trading signal for a given date
         self.lookback = lookback
         self.initial_weights = initial_weights
         self.normalise_weights = normalise_weights
-        self.kwargs = kwargs
+        # self.kwargs = kwargs
 
     def initialize(self, context):
         super(TradingSignalAlgorithm, self).initialize(context)
@@ -324,15 +333,17 @@ class OptAlgorithm(Algorithm):
     objective (str)
     - 'max_sharpe' - optimise with MPT for maximum sharpe ratio.
     - 'min_volatility' - optimise with MPT for minimum volatility
+    - 'max_quadratic_utility' - optimise with MPT for maximum utility, given a risk_aversion (default=1)
     - 'hrp' - optimise using HRP
 
     '''
     def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
                  stocks=None, country='US', trading_platform='', name='optimsation',
                  collect_before_trading=True, history=252, frequency=252,
-                 returns_model='mean_historical_return', risk_model='ledoit_wolf', objective='max_sharpe'
+                 returns_model='mean_historical_return', risk_model='ledoit_wolf', objective='max_sharpe',
+                 mpt_adjustment=None, **kwargs
                  ):
-        super(OptAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform)
+        super(OptAlgorithm, self).__init__(name, verbose, grp, subgrp, threshold, rebalance_freq, stocks, country, trading_platform, **kwargs)
         # a = self.algo
         self.collect_before_trading = collect_before_trading
         self.history = history
@@ -340,6 +351,7 @@ class OptAlgorithm(Algorithm):
         self.returns_model = returns_model
         self.risk_model = risk_model
         self.objective = objective
+        self.get_mpt_adjustment = mpt_adjustment  # adjustment function for optimal portfolio
 
     def initialize(self, context):
         super(OptAlgorithm, self).initialize(context)
@@ -366,7 +378,7 @@ class OptAlgorithm(Algorithm):
 
         # Get rolling window of past prices and compute returns
         prices = data.history(stocks_that_exist, 'price', self.history, '1d').dropna()
-        context.weights = self.get_weights(prices)
+        context.weights = self.get_weights(context, prices)
 
         if (isinstance(context.weights, type(None))):
             if self.verbose: print("Error in weights. Skipping")
@@ -397,7 +409,7 @@ class OptAlgorithm(Algorithm):
             # record for use in analysis
             # record_allocation(context)
 
-    def get_weights(self, prices):
+    def get_weights(self, context, prices):
 
         if self.objective == "hrp":
             # Hierarchical Risk Parity
@@ -405,9 +417,17 @@ class OptAlgorithm(Algorithm):
         else:
             # Modern Portfolio Theory
             mu, S = get_mu_sigma(prices, self.returns_model, self.risk_model, self.frequency)
-            weights, _, _ = optimal_portfolio(mu, S, self.objective, get_entire_frontier=False)
 
-        weights = list(weights.values())
+            if (self.get_mpt_adjustment is None):
+                weights, _, _ = optimal_portfolio(mu, S, self.objective, get_entire_frontier=False, **self.kwargs)
+            else:
+                w_max_sharpe, opt_ret, opt_risk = optimal_portfolio(mu, S, self.objective, get_entire_frontier=True)
+                r, v, _ = portfolio_performance(mu, S, w_max_sharpe)
+
+                v_adjusted = self.get_mpt_adjustment(context.datetime, v, **self.kwargs)
+                weights, _, _ = optimal_portfolio(mu, S, "efficient_risk", get_entire_frontier=False, **{"target_volatility": v_adjusted})
+
+        if type(weights) == dict: weights = list(weights.values())
         return weights
 
 

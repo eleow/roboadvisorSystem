@@ -1,3 +1,10 @@
+'''
+    Simple helper to download ticker data using https://github.com/JECSand/yahoofinancials
+
+    Created by Edmund Leow
+
+'''
+
 import os
 import matplotlib.pyplot as plt
 import pandas as pd

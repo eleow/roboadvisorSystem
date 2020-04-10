@@ -1,10 +1,10 @@
+PyPortfolioOpt==0.5.3
+pandas==0.22.0
 zipline==1.3.0
 numpy==1.14
-pandas==0.22.0
 flake8
 yahoofinancials
 pyfolio
-PyPortfolioOpt
 scikit-learn
 pytorch
 pytorch-pretrained-bert==0.6.2

@@ -44,6 +44,7 @@ git clone https://github.com/eleow/roboadvisorSystem.git
 
 * For backend code, install prerequisites in "requirements.txt"
 * For frontend code, install prerequisites in "\SystemCode\frontend\smartportfolioWeb\requirements.txt"
+* Note: zipline uses pandas==0.22.0
 
 ## Usage
 
@@ -84,7 +85,7 @@ Distributed under the [MIT License](LICENSE)
 
 Aesthetic style of plotting Markowitz bullet is borrowed from article by [Ricky Kim](https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f)
 
-Markowitz optimisation implementation is provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
+Markowitz optimisation and Hierarchical Risk Parity implementations are provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
 
 Genetic Algorithm implementation is provided by [Distributed Evolutionary Algorithms in Python (DEAP)](https://deap.readthedocs.io/en/master/)
 
