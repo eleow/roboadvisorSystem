@@ -4,6 +4,9 @@
     Created by Edmund Leow
 
 '''
+import glob
+import os
+import re
 import random
 from collections import OrderedDict
 from deap import algorithms
@@ -14,6 +17,7 @@ from deap import tools
 from tqdm import tqdm
 import pickle
 import pandas as pd
+import numpy as np
 
 from algorithms import TradingSignalAlgorithm, OptAlgorithm, run
 debug = True
@@ -115,10 +119,10 @@ def eval_min_vol(individual, opt_type="saw", **kwargs):
     return [algo_results["algo_volatility"].max().item()]  # minimise the maximum volatility throughout in-sample
 
 
-def run_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, opt_type="saw", seed=64, **kwargs):
+def run_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, opt_type="saw", seed=64, **kwargs):
     random.seed(seed)
 
-    if (fitnessType == "FitnessMax"):
+    if (fitness_type == "FitnessMax"):
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
         creator.create("Individual", list, fitness=creator.FitnessMax)
     else:
@@ -141,10 +145,25 @@ def run_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, opt_type="saw
     toolbox.register("select", tools.selTournament, tournsize=3)
     population = toolbox.population(n=npop)
 
-    print(f"Genetic Algorithm. Fitness: {fitnessType}, for {ngen} generations of {npop} population each. Seed={seed}")
+    # keep the best in hof, even in the event of extinction
+    # also compile population statistics during evolution
+    # hof = tools.HallOfFame(1)
+    # stats = tools.Statistics(lambda ind: ind.fitness.values)
+    # stats.register("avg", np.mean)
+    # stats.register("std", np.std)
+    # stats.register("min", np.min)
+    # stats.register("max", np.max)
+
+
+    print(f"Genetic Algorithm. Fitness: {fitness_type}, for {ngen} generations of {npop} population each. Seed={seed}")
+
+    # pop = toolbox.population(n=300)
+    # pop, log = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=40,
+    #                             stats=stats, halloffame=hof, verbose=True)
+
     t_ngen = tqdm(range(ngen))
     for gen in t_ngen:
-        t_ngen.set_description(f"Performing GA for generation {gen+1}/{ngen}")
+        t_ngen.set_description(f"Performing GA for generation {gen}/{ngen}")
         offspring = algorithms.varAnd(population, toolbox, cxpb=0.5, mutpb=0.1)
         fits = toolbox.map(toolbox.evaluate, offspring)
         for fit, ind in zip(fits, offspring):
@@ -167,12 +186,60 @@ def run_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, opt_type="saw
     return top10
 
 
-def run_saw_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, **kwargs):
-    return run_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, opt_type="saw", **kwargs)
+def run_saw_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, **kwargs):
+    return run_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, opt_type="saw", **kwargs)
 
 
-def run_smpt_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, **kwargs):
-    return run_ga(fitnessType, npop, ngen, results_file, eval_fn, stocks, opt_type="smpt", **kwargs)
+def run_smpt_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, **kwargs):
+    return run_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, opt_type="smpt", **kwargs)
+
+
+def compareResults(base_name="SAW_GA_MAX_RET", opt_type="saw",
+                   social_media=None, bundle_name="",
+                   train_start=None, test_start=None, test_end=None,
+                   stocks=None, trade_freq='weekly',
+                   capital_base=1000000, history=500, **kwargs):
+    all_ga = []  # [bm_all_weather]
+    test_ga = []  # [bm_aw_test]
+
+    for file in glob.glob(f"{base_name}_p*.pickle"):
+        m = re.search(f'{base_name}_p(\d*)_g(\d*)_s(\d*).*', file)
+        pop = m.group(1)
+        gen = m.group(2)
+        seed = m.group(3)
+
+        with open(f"{file}", "rb+") as f:
+            top10_max_ret = pickle.load(f)
+
+            if opt_type == "saw":
+                best_max_ret = top10_max_ret[0]
+                w_max_ret = OrderedDict()
+                i = 0
+
+                for s in stocks:
+                    w_max_ret[s] = {"p": best_max_ret[i], "n": best_max_ret[i+1]}
+                    i = i + 2
+
+                algo = TradingSignalAlgorithm(verbose=False, grp="DALIO", subgrp="ALL_WEATHER",
+                        collect_before_trading=False, history=history,
+                        rebalance_freq=trade_freq, trading_signal=saw_ga_trading_fn,
+                        initial_weights=[0.3, 0.4, 0.15, 0.075, 0.075], normalise_weights=True,
+                        **{"weights": w_max_ret, "social_media": social_media})
+
+            else:
+                w_max_ret = top10_max_ret[0]
+
+                algo = OptAlgorithm(verbose=False, grp="DALIO", subgrp="ALL_WEATHER",
+                        collect_before_trading=False, history=history,
+                        rebalance_freq=trade_freq, mpt_adjustment=smpt_ga_trading_fn,
+                        **{"weights": w_max_ret, "social_media": social_media})
+
+            saw_ga_test = run(f"{pop}-{gen}-{seed}", algo, bundle_name, test_start, test_end, capital_base, analyze=False)
+            saw_ga_all = run(f"{pop}-{gen}-{seed}", algo, bundle_name, train_start, test_end, capital_base, analyze=False)
+            test_ga.append(saw_ga_test)
+            all_ga.append(saw_ga_all)
+
+    return test_ga, all_ga
 
 
 def example():
@@ -180,7 +247,7 @@ def example():
     from datetime import datetime
     NPOP = 50
     NGEN = 10
-    seed = 16
+    seed = 1983
     stocks = ['VTI', 'TLT', 'IEF', 'GLD', 'DBC']  # list of stocks used by All-Weather
     bundle_name = 'robo-advisor_US'
 
@@ -210,14 +277,14 @@ def example():
             "train_start": train_start, "train_end": train_end, "capital_base": capital_base, "trade_freq": trade_freq}
 
     # SMPT_GA
-    # pickle_max_ret = "SMPT_GA_MAX_RET"
-    # top10_max_ret = run_smpt_ga("FitnessMax", NPOP, NGEN, pickle_max_ret,
-    #                               eval_fn=eval_cumu_returns, stocks=stocks, seed=seed, **kwargs)
+    pickle_max_ret = "SMPT_GA_MAX_RET"
+    top10_max_ret = run_smpt_ga("FitnessMax", NPOP, NGEN, pickle_max_ret,
+                                  eval_fn=eval_cumu_returns, stocks=stocks, seed=seed, **kwargs)
 
     # SAW_GA_MAX_RET
-    pickle_max_ret = "SAW_GA_MAX_RET"
-    top10_max_ret = run_saw_ga("FitnessMax", NPOP, NGEN, pickle_max_ret,
-                                eval_fn=eval_cumu_returns, stocks=stocks, seed=seed, **kwargs)
+    # pickle_max_ret = "SAW_GA_MAX_RET"
+    # top10_max_ret = run_saw_ga("FitnessMax", NPOP, NGEN, pickle_max_ret,
+    #                             eval_fn=eval_cumu_returns, stocks=stocks, seed=seed, **kwargs)
 
     # a_mpt2 = OptAlgorithm(verbose=False, grp="DALIO", subgrp="ALL_WEATHER",
     #                       collect_before_trading=False,
@@ -225,4 +292,6 @@ def example():
 
     # run("MPT (max sharpe)", a_mpt2, bundle_name, train_start, train_end, capital_base)
 
-example()
+
+if __name__ == "__main__":
+    example()
