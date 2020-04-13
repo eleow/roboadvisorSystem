@@ -260,7 +260,8 @@ class TradingSignalAlgorithm(Algorithm):
         # normalise target_allocations
         if (self.normalise_weights):
             sum_allocation = sum(context.target_allocation.values())
-            context.target_allocation = {k: v/sum_allocation for k, v in context.target_allocation.items()}
+            if sum_allocation > 0:
+                context.target_allocation = {k: v/sum_allocation for k, v in context.target_allocation.items()}
 
         context.stocks_that_exist = stocks_that_exist
 
