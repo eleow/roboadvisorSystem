@@ -422,7 +422,7 @@ def print_table_from_perf_array(perf, factor_returns=None, show_baseline=False):
     print_table(df, float_format='{0:.2f}'.format, header_rows=date_rows)
 
 
-def plot_rolling_returns_from_perf_array(perf, factor_returns=None):
+def plot_rolling_returns_from_perf_array(perf, factor_returns=None, extra_bm=0):
     """
     Plot cumulative rolling returns, given an array of performance data and benchmark
 
@@ -440,13 +440,14 @@ def plot_rolling_returns_from_perf_array(perf, factor_returns=None):
     names_arr = arr[0]
     returns_arr = arr[1]
 
-    ax = plot_rolling_returns_multiple(returns_arr, factor_returns, names_arr=names_arr)
+    ax = plot_rolling_returns_multiple(returns_arr, factor_returns, names_arr=names_arr, extra_bm=extra_bm)
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    return ax
 
 
-def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, ax=None, names_arr=None):
+def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, ax=None, names_arr=None, extra_bm=0):
     """
     Plots cumulative rolling returns versus some benchmarks'.
 
@@ -465,6 +466,7 @@ def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, 
     ax : matplotlib.Axes, optional
         Axes upon which to plot.
     names_arr: array of names for the plots, optional
+    extra_bm: number of extra benchmarks. These will be assumed to be at the front of returns_array and will be plotted differently
 
     Returns
     -------
@@ -490,9 +492,10 @@ def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, 
         is_cum_returns = cum_rets
         if (i == 0 and factor_returns is not None):
             cum_factor_returns = ep.cum_returns(factor_returns[cum_rets.index], 1.0)
-            cum_factor_returns.plot(lw=1, color='gray', label=factor_returns.name, alpha=0.60, ax=ax)
+            cum_factor_returns.plot(lw=1, color='gray', label=factor_returns.name, alpha=0.60, ax=ax, style=['-.'])
 
-        is_cum_returns.plot(lw=1, alpha=0.6, label=returns.name, ax=ax)
+        is_cum_returns.plot(lw=1, alpha=0.60, label=returns.name, ax=ax, style=['-.'] if (i < extra_bm) else None)
+        # is_cum_returns.plot(lw=1, alpha=0.60, label=returns.name, ax=ax)
 
     years = mdates.YearLocator()   # every year
     months = mdates.MonthLocator()  # every month

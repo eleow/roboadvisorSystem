@@ -17,6 +17,7 @@ from deap import tools
 import pickle
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from algorithms import TradingSignalAlgorithm, OptAlgorithm, run
 from utils import isnotebook
@@ -47,7 +48,7 @@ def saw_ga_trading_fn(stock, date, lookback, **kwargs):
     return signal
 
 
-def saw_eval_base(individual, stocks, bundle_name, train_start, train_end, capital_base, trade_freq, social_media):
+def saw_eval_base(individual, stocks, bundle_name, train_start, train_end, capital_base, trade_freq, social_media, **kwargs):
     # convert individual weights into weights for the stocks
     # if debug: print("SAW EVAL BASE")
     w = OrderedDict()
@@ -90,7 +91,7 @@ def smpt_ga_trading_fn(date, volatility, **kwargs):
     return signal
 
 
-def smpt_eval_base(individual, stocks, bundle_name, train_start, train_end, capital_base, trade_freq, social_media):
+def smpt_eval_base(individual, stocks, bundle_name, train_start, train_end, capital_base, trade_freq, social_media, **kwargs):
     # if debug: print("SMPT EVAL BASE")
     w = list(individual)
 
@@ -103,14 +104,26 @@ def smpt_eval_base(individual, stocks, bundle_name, train_start, train_end, capi
     return algo_results
 
 
-def eval_cumu_returns(individual, opt_type="saw", **kwargs):
+# def eval_cumu_returns(individual, opt_type="saw", **kwargs):
+
+#     if opt_type == "saw":
+#         algo_results = saw_eval_base(individual, **kwargs)
+#     elif opt_type == "smpt":
+#         algo_results = smpt_eval_base(individual, **kwargs)
+
+#     r = algo_results.get("algorithm_period_return", [])
+#     return [r[-1].item()]  # maximise cumulative returns at end of in-sample
+
+
+def eval_final_perf(individual, opt_type="saw", **kwargs):
+    result_col = kwargs.get("kpi", "algorithm_period_return")
 
     if opt_type == "saw":
         algo_results = saw_eval_base(individual, **kwargs)
     elif opt_type == "smpt":
         algo_results = smpt_eval_base(individual, **kwargs)
 
-    r = algo_results.get("algorithm_period_return", [])
+    r = algo_results.get(result_col, [])
     return [r[-1].item()]  # maximise cumulative returns at end of in-sample
 
 
@@ -124,14 +137,20 @@ def eval_min_vol(individual, opt_type="saw", **kwargs):
 
 
 def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
-             halloffame=None, verbose=__debug__, results_file="results", post_fix=""):
+             halloffame=None, verbose=__debug__, results_file="results", post_fix="", kpi="Value"):
     """This algorithm reproduce the simplest evolutionary algorithm as
     presented in chapter 7 of Back, Fogel and Michalewicz, "Evolutionary Computation 1 :
        Basic Algorithms and Operators", 2000.
 
-       Modification of eaSimple from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
+       eaSimple originally from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
+
+       Modified by eleow to
        - Add saving at every generation
        - Add progress bar
+       - Add plot of min,max and ave value of fitness function.
+
+       By having plot, we are able to see if GA is converging and/or improving.
+       If not, we need not waste time. We can stop the run and change objective function or seed, etc
 
     """
     def toolbox_eval(ind):
@@ -160,7 +179,17 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     record = stats.compile(population) if stats else {}
     logbook.record(gen=0, nevals=len(invalid_ind), **record)
     if verbose:
-        print(logbook.stream)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title('Statistics of population')
+        ax.set_xlabel('Gen Num.')
+        ax.set_ylabel(kpi)
+
+        # plt.ion()
+
+        fig.show()
+        fig.canvas.draw()
+        # print(logbook.stream)
 
     # Begin the generational process
     for gen in range(1, ngen + 1):
@@ -193,7 +222,17 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         record = stats.compile(population) if stats else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)
         if verbose:
-            print(logbook.stream)
+            ax.clear()
+            ax.set_title('Statistics of population')
+            ax.set_xlabel('Gen Num.')
+            ax.set_ylabel(kpi)
+
+            df_logbook = pd.DataFrame(logbook)
+            # df_logbook[['avg', 'max', 'min']].plot(ax=ax)
+
+            ax.plot(df_logbook['avg'], c='red')
+            plt.fill_between(x=df_logbook.index, y1=df_logbook['min'], y2=df_logbook['max'])
+            fig.canvas.draw()
 
         # save at the end of each gen
         top10 = tools.selBest(population, k=10)
@@ -212,11 +251,18 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     t_ind.n = t_ind.total
     t_ind.close()
     t_ngen.close()
+    plt.ioff()
+
     return population, logbook
+
+
+def initPopulation(pcls, ind_init, num_params, num_init=1):
+    return pcls(ind_init([0] * num_params) for i in range(0, num_init))
 
 
 def run_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, opt_type="saw", seed=64, **kwargs):
     random.seed(seed)
+    kpi = kwargs.get("kpi", "")
 
     if (fitness_type == "FitnessMax"):
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -228,12 +274,14 @@ def run_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, opt_type="sa
     toolbox = base.Toolbox()
     # toolbox.register("attr_float", random.random)
     toolbox.register("attr_float", random.uniform, -0.5, 0.5)
-    toolbox.register("attr_float_small", random.uniform, -0.1, 0.1)
+    toolbox.register("attr_float_small", random.uniform, -0.2, 0.2)
 
+    num_params = 2
     if opt_type == "saw":
-        toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=len(stocks)*2)
+        num_params = len(stocks)*2
+        toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=num_params)
     elif opt_type == "smpt":
-        toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float_small, n=2)
+        toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float_small, n=num_params)
 
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", eval_fn, stocks=stocks, opt_type=opt_type, **kwargs)
@@ -253,9 +301,12 @@ def run_ga(fitness_type, npop, ngen, results_file, eval_fn, stocks, opt_type="sa
     print(f"Genetic Algorithm. Fitness: {fitness_type}, for {ngen} generations of {npop} population each. Seed={seed}")
     post_fix = f"_p{npop}_g{ngen}_s{seed}"
 
-    pop = toolbox.population(n=npop)
+    # pop = toolbox.population(n=npop)
+    toolbox.register("population_guess", initPopulation, list, creator.Individual, num_params, 1)  # initialise 1 with 0 weights
+    pop = toolbox.population_guess() + toolbox.population(n=npop-1)
+
     pop, log = eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=ngen,
-                        stats=stats, halloffame=hof, verbose=False, results_file=results_file, post_fix=post_fix)
+                        stats=stats, halloffame=hof, verbose=True, results_file=results_file, post_fix=post_fix, kpi=kpi)
 
     top10 = tools.selBest(pop, k=10)
     top10 = [list(t) for t in top10]  # convert deap Individual to list
@@ -275,7 +326,7 @@ def compareResults(base_name="SAW_GA_MAX_RET", opt_type="saw",
                    social_media=None, bundle_name="",
                    train_start=None, test_start=None, test_end=None,
                    stocks=None, trade_freq='weekly',
-                   capital_base=1000000, history=500, **kwargs):
+                   capital_base=1000000, history=500, prefix="", **kwargs):
     all_ga = []  # [bm_all_weather]
     test_ga = []  # [bm_aw_test]
 
@@ -311,20 +362,20 @@ def compareResults(base_name="SAW_GA_MAX_RET", opt_type="saw",
                         rebalance_freq=trade_freq, mpt_adjustment=smpt_ga_trading_fn,
                         **{"weights": w_max_ret, "social_media": social_media})
 
-            saw_ga_test = run(f"{pop}-{gen}-{seed}", algo, bundle_name, test_start, test_end, capital_base, analyze=False)
-            saw_ga_all = run(f"{pop}-{gen}-{seed}", algo, bundle_name, train_start, test_end, capital_base, analyze=False)
+            saw_ga_test = run(f"{prefix}{pop}-{gen}-{seed}", algo, bundle_name, test_start, test_end, capital_base, analyze=False)
+            saw_ga_all = run(f"{prefix}{pop}-{gen}-{seed}", algo, bundle_name, train_start, test_end, capital_base, analyze=False)
             test_ga.append(saw_ga_test)
             all_ga.append(saw_ga_all)
 
     return test_ga, all_ga
 
 
-def example(npop=10, ngen=2, seed=10, capital_base=1000000, opt_type="saw", filepath='data/twitter/sentiments_overall_daily.csv'):
+def example(npop=200, ngen=5, seed=244, capital_base=1000000,
+            opt_type="saw", objective="min_vol",
+            filepath='data/twitter/sentiments_overall_daily.csv'):
     import pytz
     from datetime import datetime
-    # NPOP = 10
-    # NGEN = 2
-    # seed = 20080808
+
     stocks = ['VTI', 'TLT', 'IEF', 'GLD', 'DBC']  # list of stocks used by All-Weather
     bundle_name = 'robo-advisor_US'
 
@@ -342,19 +393,36 @@ def example(npop=10, ngen=2, seed=10, capital_base=1000000, opt_type="saw", file
     social_media['date'] = pd.to_datetime(social_media['date'], format="%Y-%m-%d", utc=True)
     social_media.set_index('date', inplace=True, drop=True)
 
+    kpi_map = {
+        "max_ret": "algorithm_period_return",
+        "max_sharpe": "sharpe",
+        "min_vol": "algo_volatility"
+    }
+
     kwargs = {"social_media": social_media, "bundle_name": bundle_name,
-            "train_start": train_start, "train_end": train_end, "capital_base": capital_base, "trade_freq": trade_freq}
+            "train_start": train_start, "train_end": train_end, "capital_base": capital_base, "trade_freq": trade_freq,
+            "kpi": kpi_map.get(objective, "sharpe")}
+
+    pickle_name = f"{opt_type.upper()}_GA_{objective.upper()}"
+    # pickle_max_ret = "SMPT_GA_MAX_RET"
+    # pickle_max_ret = "SAW_GA_MAX_RET"
 
     if opt_type.lower() == "smpt":
         # SMPT_GA
-        pickle_max_ret = "SMPT_GA_MAX_RET"
-        top10_max_ret, log, hof = run_smpt_ga("FitnessMax", npop, ngen, pickle_max_ret,
-                                  eval_fn=eval_cumu_returns, stocks=stocks, seed=seed, **kwargs)
+        top10_max_ret, log, hof = run_smpt_ga("FitnessMax", npop, ngen, pickle_name,
+                                  eval_fn=eval_final_perf, stocks=stocks, seed=seed, **kwargs)
     elif opt_type.lower() == "saw":
-        # SAW_GA_MAX_RET
-        pickle_max_ret = "SAW_GA_MAX_RET"
-        top10_max_ret, log, hof = run_saw_ga("FitnessMax", npop, ngen, pickle_max_ret,
-                                eval_fn=eval_cumu_returns, stocks=stocks, seed=seed, **kwargs)
+
+        if (objective != "min_vol"):
+            # SAW_GA_MAX_RET
+            top10_max_ret, log, hof = run_saw_ga("FitnessMax", npop, ngen, pickle_name,
+                                    eval_fn=eval_final_perf, stocks=stocks, seed=seed, **kwargs)
+        else:
+            # SAW_GA_MIN_VOL
+            top10_max_ret, log, hof = run_saw_ga("FitnessMin", npop, ngen, pickle_name,
+                                    eval_fn=eval_min_vol, stocks=stocks, seed=seed, **kwargs)
+
+    return top10_max_ret, log, hof
 
 
 if __name__ == "__main__":
