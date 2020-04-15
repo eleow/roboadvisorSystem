@@ -1,6 +1,8 @@
 PyPortfolioOpt==0.5.3
 pandas==0.22.0
 zipline==1.3.0
+matplotlib==3.1.2
+deap==1.3.1
 numpy==1.14
 flake8
 yahoofinancials
