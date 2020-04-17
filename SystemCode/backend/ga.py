@@ -91,13 +91,13 @@ def smpt_ga_trading_fn(date, volatility, **kwargs):
     return signal
 
 
-def smpt_eval_base(individual, stocks, bundle_name, train_start, train_end, capital_base, trade_freq, social_media, **kwargs):
+def smpt_eval_base(individual, stocks, bundle_name, train_start, train_end, capital_base, trade_freq, social_media, objective="max_sharpe", **kwargs):
     # if debug: print("SMPT EVAL BASE")
     w = list(individual)
 
     algo = OptAlgorithm(verbose=False, grp="DALIO", subgrp="ALL_WEATHER",
                         collect_before_trading=False, history=500,
-                        rebalance_freq=trade_freq, mpt_adjustment=smpt_ga_trading_fn,
+                        rebalance_freq=trade_freq, mpt_adjustment=smpt_ga_trading_fn, objective=objective,
                         **{"weights": w, "social_media": social_media})
     _, algo_results = run("SMPT-GA", algo, bundle_name, train_start, train_end, capital_base, analyze=False)
 
@@ -330,8 +330,10 @@ def compareResults(base_name="SAW_GA_MAX_RET", opt_type="saw",
     all_ga = []  # [bm_all_weather]
     test_ga = []  # [bm_aw_test]
 
-    for file in glob.glob(f"{base_name}_p*.pickle"):
+    for file in tqdm(glob.glob(f"{base_name}_p*.pickle")):
+        file = file.replace("\\", "/")
         m = re.search(f'{base_name}_p(\d*)_g(\d*)_s(\d*).*', file)
+        # print(file)
         pop = m.group(1)
         gen = m.group(2)
         seed = m.group(3)
@@ -371,7 +373,7 @@ def compareResults(base_name="SAW_GA_MAX_RET", opt_type="saw",
 
 
 def example(npop=200, ngen=5, seed=244, capital_base=1000000,
-            opt_type="saw", objective="min_vol",
+            opt_type="smpt", objective="min_vol",
             filepath='data/twitter/sentiments_overall_daily.csv'):
     import pytz
     from datetime import datetime
@@ -401,7 +403,7 @@ def example(npop=200, ngen=5, seed=244, capital_base=1000000,
 
     kwargs = {"social_media": social_media, "bundle_name": bundle_name,
             "train_start": train_start, "train_end": train_end, "capital_base": capital_base, "trade_freq": trade_freq,
-            "kpi": kpi_map.get(objective, "sharpe")}
+            "kpi": kpi_map.get(objective, "sharpe"), "objective": objective}
 
     pickle_name = f"{opt_type.upper()}_GA_{objective.upper()}"
     # pickle_max_ret = "SMPT_GA_MAX_RET"

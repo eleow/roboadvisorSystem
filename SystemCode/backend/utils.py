@@ -241,7 +241,7 @@ def optimal_portfolio(mu, S, objective='max_sharpe', get_entire_frontier=True, *
     else:
         if (objective == 'max_sharpe'):
             op.max_sharpe()
-        elif (objective == 'min_volatility'):
+        elif ('min_vol' in objective):
             op.min_volatility()
         elif (objective == 'efficient_risk'):
             target_volatility = kwargs.get("target_volatility", None)
@@ -494,8 +494,8 @@ def plot_rolling_returns_multiple(returns_arr, factor_returns=None, logy=False, 
             cum_factor_returns = ep.cum_returns(factor_returns[cum_rets.index], 1.0)
             cum_factor_returns.plot(lw=1, color='gray', label=factor_returns.name, alpha=0.60, ax=ax, style=['-.'])
 
-        is_cum_returns.plot(lw=1, alpha=0.60, label=returns.name, ax=ax, style=['-.'] if (i < extra_bm) else None)
-        # is_cum_returns.plot(lw=1, alpha=0.60, label=returns.name, ax=ax)
+        is_cum_returns.plot(lw=1, alpha=0.6, label=returns.name, ax=ax, style=['-.'] if (i < extra_bm) else None)
+        # is_cum_returns.plot(lw=1, alpha=0.6, label=returns.name, ax=ax)
 
     years = mdates.YearLocator()   # every year
     months = mdates.MonthLocator()  # every month
