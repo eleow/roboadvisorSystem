@@ -369,7 +369,7 @@ def rand_weights(n):
     return k / sum(k)
 
 
-def print_table_from_perf_array(perf, factor_returns=None, show_baseline=False):
+def print_table_from_perf_array(perf, factor_returns=None, show_baseline=False, show_header=True):
     APPROX_BDAYS_PER_MONTH = 21
     # APPROX_BDAYS_PER_YEAR = 252
 
@@ -387,12 +387,15 @@ def print_table_from_perf_array(perf, factor_returns=None, show_baseline=False):
     returns_arr = arr[1]
 
     # get headers
-    returns = returns_arr[0]  # take first row as representative of all other backtests
-    date_rows = OrderedDict()
-    if len(returns.index) > 0:
-        date_rows['Start date'] = returns.index[0].strftime('%Y-%m-%d')
-        date_rows['End date'] = returns.index[-1].strftime('%Y-%m-%d')
-        date_rows['Total months'] = int(len(returns) / APPROX_BDAYS_PER_MONTH)
+    if show_header:
+        returns = returns_arr[0]  # take first row as representative of all other backtests
+        date_rows = OrderedDict()
+        if len(returns.index) > 0:
+            date_rows['Start date'] = returns.index[0].strftime('%Y-%m-%d')
+            date_rows['End date'] = returns.index[-1].strftime('%Y-%m-%d')
+            date_rows['Total months'] = int(len(returns) / APPROX_BDAYS_PER_MONTH)
+    else:
+        date_rows = None
 
     # get peformance stats
     perf_stats_arr = []
@@ -420,6 +423,9 @@ def print_table_from_perf_array(perf, factor_returns=None, show_baseline=False):
 
     # print table
     print_table(df, float_format='{0:.2f}'.format, header_rows=date_rows)
+
+    # return performance stats
+    return df
 
 
 def plot_rolling_returns_from_perf_array(perf, factor_returns=None, extra_bm=0):

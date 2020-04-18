@@ -334,12 +334,11 @@ class OptAlgorithm(Algorithm):
     objective (str)
     - 'max_sharpe' - optimise with MPT for maximum sharpe ratio.
     - 'min_volatility' - optimise with MPT for minimum volatility
-    - 'max_quadratic_utility' - optimise with MPT for maximum utility, given a risk_aversion (default=1)
     - 'hrp' - optimise using HRP
 
     '''
     def __init__(self, verbose=False, grp='VANGUARD', subgrp='CORE_SERIES', threshold=0.05, rebalance_freq='monthly',
-                 stocks=None, country='US', trading_platform='', name='optimsation',
+                 stocks=None, country='US', trading_platform='', name='optimisation',
                  collect_before_trading=True, history=252, frequency=252,
                  returns_model='mean_historical_return', risk_model='ledoit_wolf', objective='max_sharpe',
                  mpt_adjustment=None, **kwargs
