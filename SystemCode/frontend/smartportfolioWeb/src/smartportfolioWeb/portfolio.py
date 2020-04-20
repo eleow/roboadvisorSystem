@@ -29,7 +29,7 @@ def calculate_current_val(transactions):
     return total_value
 
 
-def calculate_portfolio(id, amt):
+def calculate_portfolio(id, amt, tickers):
     # Calculate portfolio and returns an array of dict (key=ticker, val= dict of price, shares, commission),
     #  and left-over cash
     # Example of dict
@@ -44,13 +44,12 @@ def calculate_portfolio(id, amt):
 
     # TODO currently stub
     stocks = []
-    stock_tickers = 'VTI,TLT,IEF,GLD,DBC'.split(',')
-    for i in range(0, 3):
+    for i in range(0, len(tickers)):
         stocks.append({
-            "ticker": stock_tickers[i],
+            "ticker": tickers[i],
             "price/share": random.uniform(1, 2),
             "shares": random.randint(100, 1000),
-            "commission": 10
+            "commission": 0
         })
     invested = amt - (amt % 10)  # just round to nearest $10
     # cash = amt - invested

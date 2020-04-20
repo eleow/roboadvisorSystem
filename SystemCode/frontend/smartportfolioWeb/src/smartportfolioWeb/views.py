@@ -65,7 +65,10 @@ def portfolio_sell(request, id, amt):
 def portfolio_buy(request, id, amt):
     p = request.user.profile
 
-    find_name = portfolio_selection[portfolio_selection.index == "mpt_spdr_max_sharpe"]['name']
+    # find_name = portfolio_selection[portfolio_selection.index == "mpt_spdr_max_sharpe"]['name']
+    find_name = portfolio_selection[portfolio_selection.index == id]['name']
+    stocks_name = portfolio_selection[portfolio_selection.index == id]['stocks']
+
     if (len(find_name) == 0):
         messages.error(request, f"Portfolio with {id} is not available")
     else:
@@ -73,9 +76,18 @@ def portfolio_buy(request, id, amt):
 
         if (amt > p.avail_cash):
             messages.error(request, f"Investment of ${amt:,.2f} in {p_name.upper()} is not possible as you only have ${p.avail_cash:,.2f}!")
+        elif len(stocks_name) == 0:
+            messages.error(request, f"Portfolio with {id} has invalid stocks {stocks_name}")
         else:
+            tickers = []
+            s = stocks_name[0]
+            if s == "SPDR":
+                tickers = ['XLE', 'XLRE', 'XLF', 'XLV', 'XLC', 'XLI', 'XLY', 'XLP', 'XLB', 'XLK', 'XLU']
+            elif s == "ALL_WEATHER":
+                tickers = ['VTI', 'TLT', 'IEF', 'GLD', 'DBC']
+
             # Add data
-            stocks, invested = calculate_portfolio(id, amt)
+            stocks, invested = calculate_portfolio(id, amt, tickers)
             leftover_cash = amt - invested
             messages.success(request, f"Investment of ${invested:,.2f} in {p_name.upper()} successful! (${leftover_cash} returned to avail cash)")
 

@@ -51,14 +51,14 @@
                     <tbody>
                     <tr><td class="risk_{{item.risk|lower}}" colspan="3">{{ item.risk }} risk</td></tr>
                     <tr>
-                        <td class="returns">2 yr returns</td>
-                        <td class="returns">1 yr returns</td>
                         <td class="returns">Last 30 days</td>
+                        <td class="returns">1 yr returns</td>
+                        <td class="returns">1 yr max drawdown</td>
                     </tr>
                     <tr>
-                        <td>{{ item.2yr_returns|floatformat:2 }}%</td>
-                        <td>{{ item.1yr_returns|floatformat:2 }}%</td>
-                        <td>{{ item.last_30_days|floatformat:2 }}%</td>
+                        <td>{{ item.30_days_returns|floatformat:2 }}%</td>
+                        <td>{{ item.1_yr_returns|floatformat:2 }}%</td>
+                        <td>{{ item.1_yr_max_drawdown|floatformat:2 }}%</td>
                     </tr>
                     <tr>
                         <td style="padding: 5px 10px 0px 10px;" colspan="2">Total invested:</td>
@@ -74,6 +74,7 @@
                     </tr>
                     <tr>
                         <td colspan="3" class="buttons">
+                            <button class='details'>Details</button>
                             <button class='buy'>Buy</button>
                             <button class='sell'>Sell</button>
                         </td>
@@ -92,7 +93,7 @@
         <div class="row">
           <div class="col-md-12 text-center">
             <h2>Available Portfolios</h1>
-            <table id="avail_portfolios" width="100%" class="table portfolio">
+            <table id="avail_portfolios" width="100%" class="table portfolio avail_portfolios">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -100,8 +101,10 @@
                         <th>DESCRIPTION</th>
                         <th>TYPE</th>
                         <th>RISK</th>
+                        <th>LAST 30 DAYS</th>
                         <th>1YR RETURNS</th>
-                        <th>Buy</th>
+                        <th>1YR MAX DRAWDOWN</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -112,7 +115,9 @@
                         <td>{{ item.description }}</td>
                         <td>{{ item.type}}</td>
                         <td>{{ item.risk}}</td>
-                        <td>{{ item.1yr_returns}}</td>
+                        <td>{{ item.30_days_returns|floatformat:2 }}%</td>
+                        <td>{{ item.1_yr_returns|floatformat:2 }}%</td>
+                        <td>{{ item.1_yr_max_drawdown|floatformat:2 }}%</td>
                         <td></td>
                     </tr>
                     {% endfor %}
@@ -124,8 +129,10 @@
                         <th>DESCRIPTION</th>
                         <th>TYPE</th>
                         <th>RISK</th>
+                        <th>LAST 30 DAYS</th>
                         <th>1YR RETURNS</th>
-                        <th>Buy</th>
+                        <th>1YR MAX DRAWDOWN</th>
+                        <th>Actions</th>
                     </tr>
                 </tfoot>
             </table>
@@ -200,12 +207,22 @@
             "columns": [
                 {"data": "id", "visible": false},
                 {"data": "name"},
-                null, null, null, null,
-                {
-                "data": null,
-                "defaultContent": "<button class='buy'>Buy</button>"
-                }
-            ]
+                null, null, null,
+                // null, null, null,
+                {"data": "30_days_returns"},
+                {"data": "1_year_returns"},
+                {"data": "1_year_maxdrawdown"},
+                {"data": null, "defaultContent": "<button class='details'>Details</button><button class='buy'>Buy</button>"}
+            ],
+            createdRow: function (row, data, dataIndex, cells) {
+                ret_30d = parseFloat(data["30_days_returns"].replace("%",""));
+                ret_1yr = parseFloat(data["1_year_returns"].replace("%",""));
+                mdd_1yr = parseFloat(data["1_year_maxdrawdown"].replace("%",""));
+
+                $('td:eq(-4)', row).addClass(ret_30d > 0 ? "good":"bad");
+                $('td:eq(-3)', row).addClass(ret_1yr > 0 ? "good":"bad");
+                $('td:eq(-2)', row).addClass(mdd_1yr > 0 ? "good":"bad");
+            }
         });
 
         $(".buy").button({
@@ -214,6 +231,10 @@
         })
         $(".sell").button({
             icon: "ui-icon-minusthick",
+            showLabel: false
+        })
+        $(".details").button({
+            icon: "ui-icon-zoomin",
             showLabel: false
         })
 
