@@ -66,28 +66,50 @@ def portfolio_buy(request, id, amt):
     p = request.user.profile
 
     # find_name = portfolio_selection[portfolio_selection.index == "mpt_spdr_max_sharpe"]['name']
-    find_name = portfolio_selection[portfolio_selection.index == id]['name']
-    stocks_name = portfolio_selection[portfolio_selection.index == id]['stocks']
+    portfolio_data = portfolio_selection[portfolio_selection.index == id]
 
-    if (len(find_name) == 0):
+    if (portfolio_data.empty):
         messages.error(request, f"Portfolio with {id} is not available")
     else:
-        p_name = find_name[0]
+        p_name = portfolio_data['name'][0]
+        t = portfolio_data['type'][0]
+        s = portfolio_data['stocks'][0]
+        c = portfolio_data['criteria'][0]
 
         if (amt > p.avail_cash):
             messages.error(request, f"Investment of ${amt:,.2f} in {p_name.upper()} is not possible as you only have ${p.avail_cash:,.2f}!")
-        elif len(stocks_name) == 0:
-            messages.error(request, f"Portfolio with {id} has invalid stocks {stocks_name}")
-        else:
-            tickers = []
-            s = stocks_name[0]
-            if s == "SPDR":
-                tickers = ['XLE', 'XLRE', 'XLF', 'XLV', 'XLC', 'XLI', 'XLY', 'XLP', 'XLB', 'XLK', 'XLU']
-            elif s == "ALL_WEATHER":
-                tickers = ['VTI', 'TLT', 'IEF', 'GLD', 'DBC']
 
-            # Add data
-            stocks, invested = calculate_portfolio(id, amt, tickers)
+        else:
+            # Creat portfolio data if new, otherwise, we should retrieve existing transactions
+            # p.portfolio = {}
+            if p.portfolio is None: p.portfolio = {}
+            if p.portfolio.get(id, None) is None:
+                p.portfolio[id] = {"total_invested": 0, "transactions": []}
+
+                # TEST - add sample data to form a past history
+                # add sample prior transaction
+                # if id == "crb_all_weather_crb":
+                #     p.portfolio[id]["transactions"].append({
+                #         "type": "system",
+                #         "date": datetime.now(),
+                #         "stocks": [
+                #             {"ticker": 'VTI', "price/share": 140, "shares": 20, "commision": 1},
+                #             {"ticker": 'TLT', "price/share": 170, "shares": 20, "commision": 1}
+                #         ]
+                #     })
+                #     p.portfolio[id]["transactions"].append({
+                #         "type": "system",
+                #         "date": datetime.now(),
+                #         "stocks": [
+                #             {"ticker": 'VTI', "price/share": 150, "shares": 12, "commision": 1},
+                #             {"ticker": 'DBC', "price/share": 170, "shares": 11, "commision": 1}
+                #         ]
+                #     })
+                #     p.portfolio[id]["total_invested"] = (140 * 20) + (170 * 20) + (150 * 12) + (170 * 11) + 4
+
+            # Add data, passing in existing transactions as this will be used for rebalancing
+            stocks, invested = calculate_portfolio(p.portfolio[id]["transactions"], t, s, c, amt)
+
             leftover_cash = amt - invested
             messages.success(request, f"Investment of ${invested:,.2f} in {p_name.upper()} successful! (${leftover_cash} returned to avail cash)")
 
@@ -97,9 +119,6 @@ def portfolio_buy(request, id, amt):
                 "stocks": stocks
             }
 
-            # p.portfolio = {}
-            if p.portfolio is None: p.portfolio = {}
-            if p.portfolio.get(id, None) is None: p.portfolio[id] = {"total_invested": 0, "transactions": []}
             p.portfolio[id]["transactions"].append(transaction)
             p.portfolio[id]["total_invested"] += invested
 
