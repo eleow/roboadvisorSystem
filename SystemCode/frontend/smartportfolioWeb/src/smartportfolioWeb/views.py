@@ -2,7 +2,7 @@ from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.decorators import method_decorator
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
 # from django.shortcuts import get_object_or_404, redirect
 # from profiles import models as p_models
@@ -10,6 +10,7 @@ from django.urls import reverse
 # from django_tables2 import SingleTableView
 # from profiles.models import Profile
 # from profiles.tables import PortfolioTable
+import numbers
 import pandas as pd
 import os
 from datetime import datetime
@@ -29,89 +30,89 @@ class AboutPage(generic.TemplateView):
     template_name = "about.html"
 
 
-def portfolio_reset(request):
+def portfolio_reset(request, mode=None):
     # shortcut to reset all profile information for the logged in user
     p = request.user.profile
-
     p.avail_cash = 0
     p.asset_transfers = 0
     p.gross_asset_value = 0
     p.portfolio = {}
-    p.save()
 
-    messages.warning(request, "All portfolio values have been reset to zero")
+    if mode is None:
+        messages.warning(request, "All portfolio values have been reset to zero")
+    else:
+        # Quick reset to some default starting values for everything
+        p.avail_cash = 100000
+        p.asset_transfers = 100000
+
+        crb = "crb_all_weather_crb"
+        p.portfolio[crb] = {"total_invested": 0, "transactions": []}
+        p.portfolio[crb]["transactions"].append({
+            "type": "system",
+            "date": datetime.now(),
+            "stocks": [
+                {"ticker": 'VTI', "price/share": 140, "shares": 20, "commision": 1},
+                {"ticker": 'TLT', "price/share": 170, "shares": 20, "commision": 1}
+            ]
+        })
+        p.portfolio[crb]["transactions"].append({
+            "type": "system",
+            "date": datetime.now(),
+            "stocks": [
+                {"ticker": 'VTI', "price/share": 150, "shares": 12, "commision": 1},
+                {"ticker": 'DBC', "price/share": 170, "shares": 11, "commision": 1}
+            ]
+        })
+        p.portfolio[crb]["total_invested"] = (140 * 20) + (170 * 20) + (150 * 12) + (170 * 11) + 4
+        p.avail_cash -= p.portfolio[crb]["total_invested"]
+
+    p.save()
 
     # Redirect to portfolio page
     return redirect(reverse("portfolio"))
 
 
-def portfolio_sell(request, id, amt):
-    # p = request.user.profile
-
-    find_name = portfolio_selection[portfolio_selection.index == "mpt_spdr_max_sharpe"]['name']
-    if (len(find_name) == 0):
-        messages.error(request, f"Portfolio with {id} is not available")
-    else:
-        p_name = find_name[0]
-
-        # TODO
-        messages.warning(request, f"This feature has not been implemented yet! {p_name.upper()} cannot be sold!")
-        # messages.success(request, f"${amt:,.2f} in {p_name.upper()} has been sold successfully!")
-
-    # Redirect to portfolioEdit
-    return redirect(reverse("portfolio_edit"))
+def portfolio_sell(request, pid, amt):
+    return portfolio_transact(request, pid, -amt)  # switch to negative amount
 
 
-def portfolio_buy(request, id, amt):
+def portfolio_buy(request, pid, amt):
+    return portfolio_transact(request, pid, amt)
+
+
+def portfolio_transact(request, _id, amt):
     p = request.user.profile
 
     # find_name = portfolio_selection[portfolio_selection.index == "mpt_spdr_max_sharpe"]['name']
-    portfolio_data = portfolio_selection[portfolio_selection.index == id]
+    portfolio_data = portfolio_selection[portfolio_selection.index == _id]
 
     if (portfolio_data.empty):
-        messages.error(request, f"Portfolio with {id} is not available")
+        messages.error(request, f"Portfolio with {_id} is not available")
     else:
         p_name = portfolio_data['name'][0]
         t = portfolio_data['type'][0]
         s = portfolio_data['stocks'][0]
         c = portfolio_data['criteria'][0]
+        m = portfolio_data['model'][0]
 
         if (amt > p.avail_cash):
             messages.error(request, f"Investment of ${amt:,.2f} in {p_name.upper()} is not possible as you only have ${p.avail_cash:,.2f}!")
 
         else:
-            # Creat portfolio data if new, otherwise, we should retrieve existing transactions
+            # Create portfolio data if new, otherwise, we should retrieve existing transactions
             # p.portfolio = {}
             if p.portfolio is None: p.portfolio = {}
-            if p.portfolio.get(id, None) is None:
-                p.portfolio[id] = {"total_invested": 0, "transactions": []}
-
-                # TEST - add sample data to form a past history
-                # add sample prior transaction
-                # if id == "crb_all_weather_crb":
-                #     p.portfolio[id]["transactions"].append({
-                #         "type": "system",
-                #         "date": datetime.now(),
-                #         "stocks": [
-                #             {"ticker": 'VTI', "price/share": 140, "shares": 20, "commision": 1},
-                #             {"ticker": 'TLT', "price/share": 170, "shares": 20, "commision": 1}
-                #         ]
-                #     })
-                #     p.portfolio[id]["transactions"].append({
-                #         "type": "system",
-                #         "date": datetime.now(),
-                #         "stocks": [
-                #             {"ticker": 'VTI', "price/share": 150, "shares": 12, "commision": 1},
-                #             {"ticker": 'DBC', "price/share": 170, "shares": 11, "commision": 1}
-                #         ]
-                #     })
-                #     p.portfolio[id]["total_invested"] = (140 * 20) + (170 * 20) + (150 * 12) + (170 * 11) + 4
+            if p.portfolio.get(_id, None) is None: p.portfolio[_id] = {"total_invested": 0, "transactions": []}
 
             # Add data, passing in existing transactions as this will be used for rebalancing
-            stocks, invested = calculate_portfolio(p.portfolio[id]["transactions"], t, s, c, amt)
+            stocks, invested = calculate_portfolio(amt, p.portfolio[_id]["transactions"], t, s, c, m)
 
-            leftover_cash = amt - invested
-            messages.success(request, f"Investment of ${invested:,.2f} in {p_name.upper()} successful! (${leftover_cash} returned to avail cash)")
+            diff = amt - invested
+
+            if invested > 0:
+                messages.success(request, f"Bought ${invested:,.2f} in {p_name.upper()} successfully! (${diff:,.2f} returned to avail cash)")
+            else:
+                messages.success(request, f"Sold ${-invested:,.2f} in {p_name.upper()} successfully!")
 
             transaction = {
                 "type": "user",
@@ -119,14 +120,19 @@ def portfolio_buy(request, id, amt):
                 "stocks": stocks
             }
 
-            p.portfolio[id]["transactions"].append(transaction)
-            p.portfolio[id]["total_invested"] += invested
+            p.portfolio[_id]["transactions"].append(transaction)
+            p.portfolio[_id]["total_invested"] += invested
 
             p.avail_cash -= invested  # substract amt used for investment
             p.save()
 
     # Redirect to portfolioEdit
     return redirect(reverse("portfolio_edit"))
+
+
+def portfolio_details(request, pid=""):
+    print("Portfolio details - ", pid)
+    return render(request, 'portfolio_details.html', {})
 
 
 @method_decorator(login_required(login_url='/login'), name='dispatch')
@@ -153,6 +159,11 @@ class PortfolioEditPage(generic.TemplateView):
             current_portfolios[k]["earnings"] = current_portfolios[k]["current_value"] - current_portfolios[k]["total_invested"]
 
             gross_asset_value += current_portfolios[k]["current_value"]
+
+            current_portfolios[k]["class"] = {}
+            for attr, v in current_portfolios[k].items():
+                if isinstance(v, numbers.Number):
+                    current_portfolios[k]["class"][attr] = "good" if v > 0 else "bad"
 
         p.gross_asset_value = gross_asset_value  # update gross asset value
         p.save()

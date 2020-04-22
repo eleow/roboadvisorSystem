@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% load staticfiles %}
+{% load humanize %}
+
+{% block title %}{{ block.super }}Portfolio Details{% endblock %}
+
+{% block styles %}
+    {{ block.super }}
+    <!-- <link rel="stylesheet" type="text/css" href="{% static 'site/css/jquery.dataTables.css' %}"> -->
+    <link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/dataTables.bootstrap.min.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'site/vendor/jquery-ui-overcast/jquery-ui.min.css' %}">
+
+
+{% endblock styles %}
+
+
+{% block navbar-left %}
+
+{% endblock %}
+
+{% block navbar-right %}
+    {% include "loggedin_navbar.html" with active_link="portfolio" %}
+    {{ block.super }}
+{% endblock %}
+
+{% block container %}
+<div id="sec1" class="text-page_s">
+    <div class="container">
+        <div class="row">
+          <div class="col-md-12 text-center">
+            <h1>Portfolio Details</h1>
+          </div>
+        </div>
+      </div>
+</div>
+
+<div id="sec2" class="text-page_s">
+    <div class="container">
+        <div class="row">
+          <div class="col-md-12 text-center">
+            <h2>XXXX</h2>
+
+          </div>
+        </div>
+      </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+{% endblock scripts %}

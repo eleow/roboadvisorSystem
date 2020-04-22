@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.dates as mdates
 
-from zipline.api import symbols, record, order, order_target_percent
+from zipline.api import symbols, record, order_target_percent
 import empyrical as ep
 
 # PyPortfolioOpt imports
@@ -612,6 +612,13 @@ def rebalance(context, data, verbose):
 
     # record for use in analysis
     # record_allocation(context)
+
+
+def retrieve_social_media(path):
+    social_media = pd.read_csv(path, usecols=['date', 'buzz', 'finBERT', 'sent12', 'sent26'])
+    social_media['date'] = pd.to_datetime(social_media['date'], format="%Y-%m-%d", utc=True)
+    social_media.set_index('date', inplace=True, drop=True)
+    return social_media
 
 
 # https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook

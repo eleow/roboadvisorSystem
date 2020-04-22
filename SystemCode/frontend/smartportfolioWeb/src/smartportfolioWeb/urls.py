@@ -16,11 +16,17 @@ urlpatterns = [
     path("users/", include(profiles.urls)),
     path("admin/", admin.site.urls),
     path("", include(accounts.urls)),
+
     path("portfolio/", views.PortfolioPage.as_view(), name="portfolio"),
+    path("portfolio/reset/<int:mode>/", views.portfolio_reset, name="portfolio_reset"),
+    path("portfolio/reset", views.portfolio_reset, name="portfolio_reset"),
+
     path("portfolio_edit/", views.PortfolioEditPage.as_view(), name="portfolio_edit"),
-    path("portfolio_edit/buy/<str:id>/<int:amt>/", views.portfolio_buy, name="portfolio_buy"),
-    path("portfolio_edit/sell/<str:id>/<int:amt>/", views.portfolio_sell, name="portfolio_sell"),
-    path("portfolio/reset", views.portfolio_reset, name="portfolio_reset")
+    path("portfolio_edit/buy/<str:pid>/<int:amt>/", views.portfolio_buy, name="portfolio_buy"),
+    path("portfolio_edit/sell/<str:pid>/<int:amt>/", views.portfolio_sell, name="portfolio_sell"),
+
+    path("portfolio_details/", views.portfolio_details, name="portfolio_details"),
+    path("portfolio_details/<str:pid>", views.portfolio_details, name="portfolio_details"),
 ]
 
 # User-uploaded files like profile pics need to be served in development

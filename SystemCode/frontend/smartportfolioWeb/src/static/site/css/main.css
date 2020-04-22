@@ -233,11 +233,11 @@ table.current_portfolio td.risk_high {
     color:white;
 }
 
-table.avail_portfolios td.bad {
+table td.bad {
     color: red;
     font-weight: bold;
 }
-table.avail_portfolios td.good {
+table td.good {
     color: green;
     font-weight: bold;
 }

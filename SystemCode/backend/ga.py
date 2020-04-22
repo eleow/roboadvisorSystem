@@ -20,7 +20,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from algorithms import TradingSignalAlgorithm, OptAlgorithm, run
-from utils import isnotebook
+from utils import isnotebook, retrieve_social_media
 debug = True
 
 if isnotebook():
@@ -29,12 +29,16 @@ else:
     from tqdm import tqdm
 
 
-def saw_ga_trading_fn(stock, date, lookback, **kwargs):
+def saw_ga_trading_fn(stock, date, lookback=7, **kwargs):
 
     w = kwargs.get("weights", {})
     social_media = kwargs.get("social_media", None)
 
-    stockname = stock.symbol
+    if (type(stock) != str):
+        stockname = stock.symbol
+    else:
+        stockname = stock
+
     df = social_media
     yesterday_date = date - pd.Timedelta(days=1)
     yesterday_social_media = df.iloc[df.index.get_loc(yesterday_date, method='nearest')]
@@ -391,9 +395,7 @@ def example(npop=200, ngen=5, seed=244, capital_base=1000000,
     trade_freq = 'weekly'
 
     # filepath = 'data/twitter/sentiments_overall_daily.csv'
-    social_media = pd.read_csv(filepath, usecols=['date', 'buzz', 'finBERT', 'sent12', 'sent26'])
-    social_media['date'] = pd.to_datetime(social_media['date'], format="%Y-%m-%d", utc=True)
-    social_media.set_index('date', inplace=True, drop=True)
+    social_media = retrieve_social_media(filepath)
 
     kpi_map = {
         "max_ret": "algorithm_period_return",
