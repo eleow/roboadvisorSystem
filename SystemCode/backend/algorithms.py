@@ -103,16 +103,6 @@ class Algorithm(ABC):
 
     @abstractmethod
     def before_trading_starts(self, context, data):
-        # retrieve sentiment for yesterday (lag 1)
-
-        # df = self.social_media
-        # yesterday_date = context.datetime - pd.Timedelta(days=1)
-        # yesterday_social_media = df.iloc[df.index.get_loc(yesterday_date, method='nearest')]
-        # context.buzz = yesterday_social_media['buzz']
-        # context.sentiment = yesterday_social_media['sent12']
-        # record_social_media(context)
-
-        # print("TODAY:", context.datetime, "YESTERDAY:", yesterday_date, "SENTIMENT:", yesterday_sentiment)
         pass
 
     def get_social_media(self, filepath='../data/twitter/sentiments_overall_daily.csv'):
@@ -291,11 +281,13 @@ class CRBAlgorithm(Algorithm):
             raise Exception("Portfolio Doesn't Have Risk Level " + str(self.risk_level))
 
         # if sum of allocation weights is greater than 1, we will automatically normalise them
-        sum_allocation = sum(risk_based_allocation[self.risk_level])
-        if sum_allocation > 1:
-            risk_based_allocation[self.risk_level] = [r/sum_allocation for r in risk_based_allocation[self.risk_level]]
+        allocation = risk_based_allocation[self.risk_level]
 
-        context.target_allocation_initial = dict(zip(context.stocks, risk_based_allocation[self.risk_level]))
+        sum_allocation = sum(allocation)
+        if sum_allocation > 1:
+            allocation = [r/sum_allocation for r in allocation]
+
+        context.target_allocation_initial = dict(zip(context.stocks, allocation))
         context.target_allocation = context.target_allocation_initial
         context.bought = False
 
@@ -429,6 +421,39 @@ class OptAlgorithm(Algorithm):
 
         if type(weights) == dict: weights = list(weights.values())
         return weights
+
+
+class BuyAndHoldAlgorithm(CRBAlgorithm):
+    '''Buy-and-Hold some tickers based on initial weights
+    '''
+
+    def __init__(self, verbose=False,
+                 grp='VANGUARD', subgrp='CORE_SERIES', name="BuyAndHold",
+                 stocks=None, country='US', trading_platform='', **kwargs
+                 ):
+
+        super(BuyAndHoldAlgorithm, self).__init__(verbose, grp, subgrp, threshold=0.05, rebalance_freq='monthly',
+                 stocks=stocks, country=country, trading_platform=trading_platform,
+                 name=name, risk_level=0)
+
+    def initialize(self, context):
+        super(BuyAndHoldAlgorithm, self).initialize(context)
+        context.bought = False
+
+    def handle_data(self, context, data):
+        if not context.bought:
+            for stock in context.stocks:
+                # Allocate cash based on weight, and then divide by price to buy shares
+                amount = (context.target_allocation[stock] * context.portfolio.cash) / data.current(stock,'price')
+                # only buy if cash is allocated
+                if (amount != 0):
+                    order(stock, int(amount))
+                # print("Buying " + str(int(amount)) + " shares of " + str(stock))
+
+        context.bought = True
+
+    def before_trading_starts(self, context, data):
+        pass
 
 
 ###############################################################################

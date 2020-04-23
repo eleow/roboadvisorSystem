@@ -32,6 +32,17 @@ body>.navbar-transparent {
     color: white;
 }
 
+.navbar-default .navbar-nav > .pactive > a,  .navbar-default .navbar-nav > .pactive > a:hover{
+    background-color: black;
+    color: white;
+}
+
+.navbar-default .navbar-nav>li>a:focus, .navbar-default .navbar-nav>li>a:hover {
+    color: #333;
+    background-color: yellow;
+}
+
+
 .navbar-form {
     margin-right: 0;
 }
@@ -233,13 +244,23 @@ table.current_portfolio td.risk_high {
     color:white;
 }
 
-table td.bad {
+table td.neg {
     color: red;
     font-weight: bold;
 }
-table td.good {
+table td.pos {
     color: green;
     font-weight: bold;
+}
+
+table.portfolio th {
+    background: #e7e7e7;
+    color: black;
+}
+
+table.portfolio th.highlight {
+    background: yellow;
+    color: black;
 }
 
 .ui-dialog .ui-state-error { padding: .3em; }

@@ -12,3 +12,4 @@ scikit-learn
 pytorch
 pytorch-pretrained-bert==0.6.2
 deap
+beautifulsoup4

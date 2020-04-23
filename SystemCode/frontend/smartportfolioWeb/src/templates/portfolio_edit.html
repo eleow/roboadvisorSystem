@@ -3,7 +3,7 @@
 {% load staticfiles %}
 {% load humanize %}
 
-{% block title %}{{ block.super }}Add/Edit Portfolios{% endblock %}
+{% block title %}{{ block.super }}Portfolio Management{% endblock %}
 
 {% block styles %}
     {{ block.super }}
@@ -16,11 +16,11 @@
 
 
 {% block navbar-left %}
-
+    {% include "portfolio_navbar.html" with active_link="portfolio_edit" %}
 {% endblock %}
 
 {% block navbar-right %}
-    {% include "loggedin_navbar.html" with active_link="portfolio" %}
+    {% include "loggedin_navbar.html" with active_link="portfolio" disable_link="portfolio" %}
     {{ block.super }}
 {% endblock %}
 
@@ -29,7 +29,7 @@
     <div class="container">
         <div class="row">
           <div class="col-md-12 text-center">
-            <h1>Portfolios</h1>
+            <h1>Portfolio Management</h1>
           </div>
         </div>
       </div>
@@ -56,9 +56,9 @@
                         <td class="returns">1 yr max drawdown</td>
                     </tr>
                     <tr>
-                        <td>{{ item.30_days_returns|floatformat:2 }}%</td>
-                        <td>{{ item.1_yr_returns|floatformat:2 }}%</td>
-                        <td>{{ item.1_yr_max_drawdown|floatformat:2 }}%</td>
+                        <td class="{{ item.class.30_days_returns }}">{{ item.30_days_returns|floatformat:2 }}%</td>
+                        <td class="{{ item.class.1_yr_returns }}">{{ item.1_yr_returns|floatformat:2 }}%</td>
+                        <td class="{{ item.class.1_yr_max_drawdown }}">{{ item.1_yr_max_drawdown|floatformat:2 }}%</td>
                     </tr>
                     <tr>
                         <td style="padding: 5px 10px 0px 10px;" colspan="2">Total invested:</td>
@@ -70,7 +70,7 @@
                     </tr>
                     <tr>
                         <td colspan="2">Earnings:</td>
-                        <td>{{ item.earnings|floatformat:2|intcomma }}</td>
+                        <td class="{{ item.class.earnings }}">{{ item.earnings|floatformat:2|intcomma }}</td>
                     </tr>
                     <tr>
                         <td colspan="3" class="buttons">
@@ -154,7 +154,7 @@
                 <div class="input-group">
                     <span class="input-group-addon"><i class="fa fa-money"></i></span>
                     <input
-                        type="number" name="buy_portfolio" value="0" step="100"
+                        type="number" name="buy_portfolio" value="0" step="1" min="0"
                         placeholder="Enter amount to buy" class="numberinput form-control" required=""
                         id="id_buy_portfolio">
                 </div>
@@ -178,7 +178,7 @@
                 <div class="input-group">
                     <span class="input-group-addon"><i class="fa fa-money"></i></span>
                     <input
-                        type="number" name="sell_portfolio" value="0" step="100"
+                        type="number" name="sell_portfolio" value="0" step="1" min="0"
                         placeholder="Enter amount to sell" class="numberinput form-control" required=""
                         id="id_sell_portfolio">
                 </div>
@@ -219,9 +219,9 @@
                 ret_1yr = parseFloat(data["1_year_returns"].replace("%",""));
                 mdd_1yr = parseFloat(data["1_year_maxdrawdown"].replace("%",""));
 
-                $('td:eq(-4)', row).addClass(ret_30d > 0 ? "good":"bad");
-                $('td:eq(-3)', row).addClass(ret_1yr > 0 ? "good":"bad");
-                $('td:eq(-2)', row).addClass(mdd_1yr > 0 ? "good":"bad");
+                $('td:eq(-4)', row).addClass(ret_30d > 0 ? "pos":"neg");
+                $('td:eq(-3)', row).addClass(ret_1yr > 0 ? "pos":"neg");
+                $('td:eq(-2)', row).addClass(mdd_1yr > 0 ? "pos":"neg");
             }
         });
 
@@ -276,7 +276,7 @@
             var id = $dialog_buy.data("id");
 
             if (valid) {
-                $(location).attr('href', "/portfolio_edit/buy/" + id + "/" + $amt_buy.val())
+                $(location).attr('href', "/portfolio_edit/buy/" + id + "/" + Math.round($amt_buy.val()))
                 $dialog_buy.dialog("close");
                 //
             }
@@ -290,7 +290,7 @@
             var id = $dialog_sell.data("id");
 
             if (valid) {
-                $(location).attr('href', "/portfolio_edit/sell/" + id + "/" + $amt_sell.val())
+                $(location).attr('href', "/portfolio_edit/sell/" + id + "/" + Math.round($amt_sell.val()))
                 $dialog_buy.dialog("close");
                 //
             }
@@ -352,8 +352,6 @@
             var currentRow = $(this).closest("tr");
             var data =  $avail_portfolio_table.row(currentRow).data();
 
-            console.log(data['name']);
-
             // Set title, open dialog and move dialog to the top
             $dialog_buy.data("id", data['id']);
             $dialog_buy.dialog({title: data['name']}).dialog("open").dialog("moveToTop");
@@ -378,6 +376,19 @@
             $dialog_sell.data("id", pid);
             $dialog_sell.dialog({title: pname}).dialog("open").dialog("moveToTop");
         });
+
+        $('table.current_portfolio tbody').on('click', 'button.details', function() {
+            pid = $(this).closest("table").attr("pid");
+            $(location).attr('href', "/portfolio_details/" + pid);
+        });
+
+        $('table.portfolio tbody').on('click', 'button.details', function() {
+            var currentRow = $(this).closest("tr");
+            var data =  $avail_portfolio_table.row(currentRow).data();
+            var pid = data['id'];
+            $(location).attr('href', "/portfolio_details/" + pid);
+        });
+
 
     } );
 

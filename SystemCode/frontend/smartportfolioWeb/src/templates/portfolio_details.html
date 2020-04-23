@@ -6,21 +6,20 @@
 {% block title %}{{ block.super }}Portfolio Details{% endblock %}
 
 {% block styles %}
-    {{ block.super }}
-    <!-- <link rel="stylesheet" type="text/css" href="{% static 'site/css/jquery.dataTables.css' %}"> -->
+    <!-- {{ block.super }} -->
     <link rel="stylesheet" type="text/css" href="{% static 'bootstrap/css/dataTables.bootstrap.min.css' %}">
     <link rel="stylesheet" type="text/css" href="{% static 'site/vendor/jquery-ui-overcast/jquery-ui.min.css' %}">
-
+    <!-- <link rel="stylesheet" type="text/css" href="{% static 'site/vendor/Highstock/highcharts.css' %}"> -->
 
 {% endblock styles %}
 
 
 {% block navbar-left %}
-
+    {% include "portfolio_navbar.html" with active_link="portfolio_details" %}
 {% endblock %}
 
 {% block navbar-right %}
-    {% include "loggedin_navbar.html" with active_link="portfolio" %}
+    {% include "loggedin_navbar.html" with active_link="portfolio" disable_link="portfolio" %}
     {{ block.super }}
 {% endblock %}
 
@@ -30,24 +29,131 @@
         <div class="row">
           <div class="col-md-12 text-center">
             <h1>Portfolio Details</h1>
+            <h2>{{ selection | safe }}</h2>
           </div>
         </div>
       </div>
 </div>
 
-<div id="sec2" class="text-page_s">
+{% if name %}
+<!-- <div id="sec2" class="text-page_s"> -->
+    <!-- <div class="container"> -->
+        <!-- <div class="row"> -->
+          <!-- <div class="col-md-12 text-center"> -->
+            <h2>Backtest Results</h2>
+            <div id="backtest" style="height: 500px; width: 100%"></div>
+          <!-- </div> -->
+        <!-- </div> -->
+      <!-- </div> -->
+<!-- </div> -->
+
+
+<div id="sec3" class="text-page_s">
     <div class="container">
         <div class="row">
           <div class="col-md-12 text-center">
-            <h2>XXXX</h2>
-
+            <h2>Key Performance Statistics</h2>
+            {{ extra_header | safe }}
+            {{ table | safe }}
           </div>
         </div>
       </div>
 </div>
-
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
+{{ block.super }}
+<script type="text/javascript" charset="utf8" src="{% static 'site/vendor/Highstock/js/highstock.js' %}"></script>
+<script type="text/javascript" charset="utf8" src="{% static 'site/vendor/Highstock/js/themes/sand-signika.js' %}"></script>
+<script>
+    $('#select_portfolio').change(function() {
+        $(location).attr('href', "/portfolio_details/" + $(this).val());
+    });
+
+    var json = {{ graph | safe }};
+
+    // $(function(){
+    var options = {
+        chart: {renderTo: 'backtest'},
+        rangeSelector: {selected: 4},
+        // yAxis: {
+        //     labels: {
+        //         formatter: function() {
+        //             return (this.value > 0 ? '+' : '') + this.value + '%';
+        //         }
+        //     },
+        //     plotLines: [{value: 0,width: 2,color: 'silver'}]
+        // },
+        // plotOptions: {series: {compare: 'percent'}},
+        tooltip: {
+            // pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+            pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b><br/>',
+            yDecimals: 2,
+            valueDecimals: 2
+        },
+        series: []
+    };
+    options.series = json;
+
+    var chart = new Highcharts.StockChart(options);
+    chart.redraw();
+    // });
+
+
+    // $(function() {
+    //     var seriesOptions = [],
+    //         yAxisOptions = [],
+    //         seriesCounter = 0,
+    //         names = ['MSFT', 'AAPL', 'GOOG'],
+    //         colors = Highcharts.getOptions().colors;
+
+    //     $.each(names, function(i, name) {
+    //         url = 'http://www.highcharts.com/samples/data/jsonp.php?filename='+ name.toLowerCase() +'-c.json&callback=?';
+    //         console.log(url);
+
+    //         $.getJSON(url,	function(data) {
+
+    //             seriesOptions[i] = {
+    //                 name: name,
+    //                 data: data
+    //             };
+
+    //             // As we're loading the data asynchronously, we don't know what order it will arrive. So
+    //             // we keep a counter and create the chart when all the data is loaded.
+    //             seriesCounter++;
+    //             if (seriesCounter == names.length) {
+    //                 createChart();
+    //             }
+    //         });
+    //     });
+
+    //     // create the chart when all data is loaded
+    //     function createChart() {
+    //         chart = new Highcharts.StockChart({
+    //             chart: {renderTo: 'backtest'},
+    //             rangeSelector: {selected: 4},
+    //             yAxis: {
+    //                 labels: {
+    //                     formatter: function() {
+    //                         return (this.value > 0 ? '+' : '') + this.value + '%';
+    //                     }
+    //                 },
+    //                 plotLines: [{value: 0,width: 2,color: 'silver'}]
+    //             },
+    //             plotOptions: {series: {compare: 'percent'}},
+    //             tooltip: {
+    //                 pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+    //                 yDecimals: 2
+    //             },
+    //             series: seriesOptions
+    //         });
+    //     }
+
+    // });
+</script>
+<link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+<link href="{% static 'site/css/main.css' %}" rel="stylesheet">
+<link href="{% static 'site/css/extra.css' %}" rel="stylesheet">
 {% endblock scripts %}

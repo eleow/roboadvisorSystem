@@ -1,0 +1,3 @@
+<li {% if active_link == "portfolio" %}class="pactive"{% endif %}><a href="{% url 'portfolio' %}"><i class="fa fa-fw fa-table"></i>Summary</a></li>
+<li {% if active_link == "portfolio_edit" %}class="pactive"{% endif %}><a href="{% url 'portfolio_edit' %}"><i class="fa fa-fw fa-table"></i>Manage</a></li>
+<li {% if active_link == "portfolio_details" %}class="pactive"{% endif %}><a href="{% url 'portfolio_details' %}"><i class="fa fa-fw fa-search"></i>Details</a></li>

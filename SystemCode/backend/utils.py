@@ -64,6 +64,10 @@ def initialize_portfolio(verbose=False):
     if verbose: print('Initialising portfolio database')
     all_portfolios = {}
 
+    # Benchmarks
+    # use [] for single ticker, so that it is iterable to avoid error 'int' object is not iterable
+    add_portfolio(all_portfolios, 'BENCHMARK', 'SPY', symbols('SPY'), {0: [1]})
+
     # 11 SPDR sector ETFs
     add_portfolio(all_portfolios, 'SPDR', 'ALL_SECTORS', symbols('XLE', 'XLRE', 'XLF', 'XLV', 'XLC', 'XLI', 'XLY', 'XLP', 'XLB', 'XLK', 'XLU'), {
         0: tuple(1 for _ in range(11))

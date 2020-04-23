@@ -11,15 +11,26 @@ from django.urls import reverse
 # from profiles.models import Profile
 # from profiles.tables import PortfolioTable
 import numbers
+import pickle
 import pandas as pd
 import os
 from datetime import datetime
+
+from bs4 import BeautifulSoup as bs
 from .portfolio import calculate_portfolio, calculate_current_val
 
 PORTFOLIO_SELECTION_PATH = "portfolio_details.xlsx"
-portfolio_selection = pd.read_excel(os.path.join(os.path.dirname(__file__), PORTFOLIO_SELECTION_PATH), index_col=0)
+portfolio_selection = pd.read_excel(os.path.join(os.path.dirname(__file__), PORTFOLIO_SELECTION_PATH), index_col=0, dtype={'model': str, 'benchmark': str}, keep_default_na=False)
 col_repl = {c: c.replace(" ", "_") for c in portfolio_selection.columns if " " in c}  # rename column if there is a space
 portfolio_selection = portfolio_selection.rename(columns=col_repl)
+
+PORTFOLIO_GRAPH_DATA_PATH = "portfolio_graph.pickle"
+PORTFOLIO_PERF_DATA_PATH = "portfolio_details.pickle"
+with open(os.path.join(os.path.dirname(__file__), PORTFOLIO_GRAPH_DATA_PATH), "rb+") as f:
+    portfolio_graph_data = pickle.load(f)
+
+with open(os.path.join(os.path.dirname(__file__), PORTFOLIO_PERF_DATA_PATH), "rb+") as f:
+    portfolio_perf_data = pickle.load(f)
 
 
 class HomePage(generic.TemplateView):
@@ -131,8 +142,91 @@ def portfolio_transact(request, _id, amt):
 
 
 def portfolio_details(request, pid=""):
-    print("Portfolio details - ", pid)
-    return render(request, 'portfolio_details.html', {})
+    extra_header_text = ""
+    p_name = ""
+    tb = ""
+    graph = []
+    portfolio_data = portfolio_selection[portfolio_selection.index == pid]
+
+    # Create drop-down list of possible portfolios to choose from
+    all_names = dict(portfolio_selection['name'])
+    select = ""  # "<select id='select_portfolio'></select>"
+    if pid == "":
+        select += "<option disabled selected value> -- Select a Portfolio -- </option>"
+
+    for i, name in all_names.items():
+        if (pid != i):
+            select += f"<option value='{i}'>{name}</option>"
+        else:
+            select += f"<option value='{i}' selected>{name}</option>"
+
+    select = "<select id='select_portfolio'>" + select + "</select>"
+
+    # Basically show the Tear Sheet and Graph for the chosen pid, and also comparison with benchmark
+    if (not portfolio_data.empty):
+        p_name = portfolio_data['name'][0]
+
+        # Plot using highstocks
+        y = [v * 100 for v in portfolio_graph_data[pid][2][1]['algorithm_period_return'].values.tolist()]
+        x = [int(t.timestamp() * 1000) for t in portfolio_graph_data[pid][2][1].index.tolist()]
+        graph_data = [[x[i], y[i]] for i in range(len(x))]
+        graph.append({
+            "name": p_name,
+            "data": graph_data,
+            "visible": "true"
+        })
+
+        if (portfolio_data['benchmark'][0] != ""):
+            p_benchmarks = [f"bah_{x.strip()}_bah" for x in portfolio_data['benchmark'][0].split(',')]
+
+            # Concatenate perf matrices for PID and its benchmarks
+            df_with_bm = pd.concat([portfolio_perf_data[pid]] + [portfolio_perf_data[b] for b in p_benchmarks], axis=1)
+
+            # Show table of performance statistics, modifying for formatting
+            # soup = bs(portfolio_perf_data[pid].to_html(), 'html.parser')
+            soup = bs(df_with_bm.to_html(), 'html.parser')
+            tb = soup.table
+
+            # construct additional header
+            # extra_header = f"<tr><th></th>{'<th colspan=\'3\'></th>' * (len(p_benchmarks)+1)}</tr>"
+            extra_row = soup.new_tag("tr")
+            extra_header = '<th></th><th class=\'highlight\' colspan=\'3\'>' + p_name + '</th>'
+
+            for b in p_benchmarks:
+                th_name = portfolio_selection[portfolio_selection.index == b]['name'][0]
+                extra_header += '<th colspan=\'3\'>' + th_name + '</th>'
+
+                # also add data to plots
+                y = [v * 100 for v in portfolio_graph_data[b][2][1]['algorithm_period_return'].values.tolist()]
+                x = [int(t.timestamp() * 1000) for t in portfolio_graph_data[b][2][1].index.tolist()]
+                graph_data = [[x[i], y[i]] for i in range(len(x))]
+                graph.append({
+                    "name": th_name,
+                    "data": graph_data
+                })
+
+            extra_row.append(bs(extra_header, 'html.parser'))
+            tb.thead.insert(0, extra_row)
+
+            extra_header_text = "<h3>in comparison with relevant benchmarks</h3>"
+
+        else:
+            soup = bs(portfolio_perf_data[pid].to_html(), 'html.parser')
+            tb = soup.table
+
+        # Add css styling for certain cells based on positive or negative
+        for t in tb.find_all('tr'):
+            if t.th.string in ["Annual return", "Cumulative returns", "Sharpe ratio"]:
+                for d in t.find_all('td'):
+                    if d.string is not None:
+                        v = float(d.string.replace("%", ""))
+                        d['class'] = "pos" if v > 0 else "neg"
+
+        tb['class'] = "table portfolio"
+        tb = str(tb)
+
+    return render(request, 'portfolio_details.html', {'name': p_name,
+        'selection': select, 'table': tb, "extra_header": extra_header_text, "graph": graph})
 
 
 @method_decorator(login_required(login_url='/login'), name='dispatch')
@@ -163,7 +257,7 @@ class PortfolioEditPage(generic.TemplateView):
             current_portfolios[k]["class"] = {}
             for attr, v in current_portfolios[k].items():
                 if isinstance(v, numbers.Number):
-                    current_portfolios[k]["class"][attr] = "good" if v > 0 else "bad"
+                    current_portfolios[k]["class"][attr] = "pos" if v > 0 else "neg"
 
         p.gross_asset_value = gross_asset_value  # update gross asset value
         p.save()

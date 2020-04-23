@@ -8,11 +8,11 @@
 {% block title %}{{ block.super }}Portfolio{% endblock %}
 
 {% block navbar-left %}
-
+    {% include "portfolio_navbar.html" with active_link="portfolio" %}
 {% endblock %}
 
 {% block navbar-right %}
-    {% include "loggedin_navbar.html" with active_link="portfolio" %}
+    {% include "loggedin_navbar.html" with active_link="portfolio" disable_link="portfolio" %}
     {{ block.super }}
 {% endblock %}
 
@@ -54,7 +54,7 @@
               <strong>Performance</strong>: XXX
           </div>
         </div>
-        <a href="{% url 'portfolio_edit' %}" class="btn btn-info">Add/Edit Portfolios</a>
+        <a href="{% url 'portfolio_edit' %}" class="btn btn-info">Manage Portfolios</a>
       </div>
     </div>
   </div>
