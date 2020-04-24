@@ -239,6 +239,11 @@ table.current_portfolio td.risk_medium {
     color:black;
 }
 
+table.current_portfolio td.risk_medium-high {
+    background: orangered;
+    color:white;
+}
+
 table.current_portfolio td.risk_high {
     background: red;
     color:white;
@@ -265,3 +270,8 @@ table.portfolio th.highlight {
 
 .ui-dialog .ui-state-error { padding: .3em; }
 .validateTips { border: 1px solid transparent; padding: 0.3em; }
+
+p.asterisk {
+    text-align: left;
+    font-size: small;
+}

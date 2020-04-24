@@ -93,11 +93,13 @@ Distributed under the [MIT License](LICENSE)
 
 ## Acknowledgements
 
-Aesthetic style of plotting Markowitz bullet is borrowed from article by [Ricky Kim](https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f)
+Backtesting is performed using the Pythonic algorithmic trading library, [Zipline](https://www.zipline.io/)
 
 Markowitz optimisation and Hierarchical Risk Parity implementations are provided by [PyPortfolioOpt](https://pyportfolioopt.readthedocs.io/en/latest/)
 
 Genetic Algorithm implementation is provided by [Distributed Evolutionary Algorithms in Python (DEAP)](https://deap.readthedocs.io/en/master/)
+
+Aesthetic style of plotting Markowitz bullet is borrowed from article by [Ricky Kim](https://towardsdatascience.com/efficient-frontier-portfolio-optimisation-in-python-e7844051e7f)
 
 The front-end UI for the robo advisor system is built using the [Django Web Framework](https://www.djangoproject.com/)
 

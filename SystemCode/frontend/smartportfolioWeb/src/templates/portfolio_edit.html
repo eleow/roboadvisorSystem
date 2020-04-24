@@ -49,7 +49,7 @@
                         <tr><th colspan="3">{{ item.name }}</th></tr>
                     </thead>
                     <tbody>
-                    <tr><td class="risk_{{item.risk|lower}}" colspan="3">{{ item.risk }} risk</td></tr>
+                    <tr><td class="risk_{{item.risk|lower}}" colspan="3" title="{{ item.risk_title }}">{{ item.risk }} risk <i class='fa fa-question-circle' style='float:right;'></i></td></tr>
                     <tr>
                         <td class="returns">Last 30 days</td>
                         <td class="returns">1 yr returns</td>
@@ -214,6 +214,7 @@
                 {"data": "1_year_maxdrawdown"},
                 {"data": null, "defaultContent": "<button class='details'>Details</button><button class='buy'>Buy</button>"}
             ],
+            "order": [[ 5, "desc" ]],
             createdRow: function (row, data, dataIndex, cells) {
                 ret_30d = parseFloat(data["30_days_returns"].replace("%",""));
                 ret_1yr = parseFloat(data["1_year_returns"].replace("%",""));
