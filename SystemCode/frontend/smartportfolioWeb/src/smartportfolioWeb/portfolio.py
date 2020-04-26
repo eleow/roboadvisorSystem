@@ -47,9 +47,9 @@ def get_allocation_CRB(tickers, stock_type):
     return dict(zip(tickers, target_allocation))
 
 
-def get_allocation_MPT(tickers, objective, history=500, get_mpt_adjustment=None, **kwargs):
+def get_allocation_MPT(tickers, objective, history=500, get_mpt_adjustment=None, date=None, **kwargs):
 
-    _, df_prices = get_ticker_prices(tickers, history=history)
+    _, df_prices = get_ticker_prices(tickers, history=history, date=date)
     if objective == "hrp":
         weights = hrp_portfolio(df_prices)
     else:
@@ -59,7 +59,7 @@ def get_allocation_MPT(tickers, objective, history=500, get_mpt_adjustment=None,
         timezone = kwargs.get('timezone', 'US/Mountain')
 
         tz = pytz.timezone(timezone)
-        t_end = datetime.now(tz)
+        t_end = datetime.now(tz) if date is None else date
 
         mu, S = get_mu_sigma(df_prices, returns_model, risk_model, frequency)
 
@@ -85,10 +85,10 @@ def get_allocation_MPT(tickers, objective, history=500, get_mpt_adjustment=None,
 def get_allocation_SAW(tickers, trading_signal=saw_ga_trading_fn,
                        timezone='US/Mountain', social_media=None,
                        ga_model='SMPT_GA_MAX_RET_p200_g5_s2020',
-                       initial_weights=[0.3, 0.4, 0.15, 0.075, 0.075]):
+                       initial_weights=[0.3, 0.4, 0.15, 0.075, 0.075], date=None):
 
     tz = pytz.timezone(timezone)
-    t_end = datetime.now(tz)
+    t_end = datetime.now(tz) if date is None else date
 
     with open(f"../../../backend/data/ga/{ga_model}.pickle", "rb+") as f:
         top10_max_ret = pickle.load(f)
@@ -116,11 +116,11 @@ def get_allocation_SAW(tickers, trading_signal=saw_ga_trading_fn,
     return weights
 
 
-def get_ticker_prices(tickers, timezone='US/Mountain', history=1):
+def get_ticker_prices(tickers, timezone='US/Mountain', history=1, date=None):
 
     tz = pytz.timezone(timezone)
-    t_end = datetime.now(tz)
-    t_start = t_end - max(1, history) * pd.tseries.offsets.BDay()  # "today" might be  a weekend, so min history=1
+    t_end = datetime.now(tz) if date is None else date
+    t_start = t_end - max(3, history) * pd.tseries.offsets.BDay()  # "today" might be a weekend or holiday, so min history=3
     tickers = sorted(tickers)
 
     # generate hash based on input params, so that we can cache results
@@ -171,7 +171,7 @@ def get_commission(num_shares, cost_per_share=0.005, minimum_per_order=1):
     return Decimal(commission)
 
 
-def calculate_current_val(transactions):
+def calculate_current_val(transactions, date=None):
     list_stocks = {}
     for t in transactions:
         for s in t["stocks"]:
@@ -179,7 +179,7 @@ def calculate_current_val(transactions):
                 list_stocks[s["ticker"]] = {"shares": 0}
             list_stocks[s["ticker"]]["shares"] += s["shares"]
 
-    all_prices, _ = get_ticker_prices(list(list_stocks.keys()))
+    all_prices, _ = get_ticker_prices(list(list_stocks.keys()), date=date)
 
     total_value = 0
     for key in list_stocks.keys():
@@ -192,7 +192,7 @@ def calculate_current_val(transactions):
     return total_value
 
 
-def calculate_portfolio(amt, transactions, ptype, stocks_type, criteria, ga_model):
+def calculate_portfolio(amt, transactions, ptype, stocks_type, criteria, ga_model, date=None):
     # Calculate portfolio and returns an array of dict (key=ticker, val= dict of price, shares, commission),
     #  and left-over cash
     # Example of dict
@@ -206,15 +206,15 @@ def calculate_portfolio(amt, transactions, ptype, stocks_type, criteria, ga_mode
     #   }
     grp, subgrp, tickers = get_details_from_stock_type(stocks_type)
 
-    if ptype == "CRB":
+    if ptype in ["CRB", "BAH"]:
         allocation = get_allocation_CRB(tickers, stocks_type)
     elif ptype in ["MPT", "HRP"]:
-        allocation = get_allocation_MPT(tickers, criteria)
+        allocation = get_allocation_MPT(tickers, criteria, date=date)
     elif ptype == "SAW":
-        allocation = get_allocation_SAW(tickers, trading_signal=saw_ga_trading_fn, social_media=social_media, ga_model=ga_model)
+        allocation = get_allocation_SAW(tickers, trading_signal=saw_ga_trading_fn, social_media=social_media, ga_model=ga_model, date=date)
     elif ptype == "SMPT":
         allocation = get_allocation_MPT(tickers, criteria,
-            get_mpt_adjustment=smpt_ga_trading_fn, social_media=social_media, ga_model=ga_model)
+            get_mpt_adjustment=smpt_ga_trading_fn, social_media=social_media, ga_model=ga_model, date=date)
 
     # Check if we have existing transactions for this portfolio, if so we should take the chance to rebalance
     existing_shares = {}
@@ -226,7 +226,7 @@ def calculate_portfolio(amt, transactions, ptype, stocks_type, criteria, ga_mode
     # get all tickers, and then get prices for all these tickers
     # just in case there were different tickers in prev transactions in this portfolio
     all_tickers = set(tickers + list(existing_shares.keys()))
-    all_prices, _ = get_ticker_prices(all_tickers)
+    all_prices, _ = get_ticker_prices(all_tickers, date=date)
 
     existing_value = 0
     for k, v in existing_shares.items():
@@ -236,9 +236,14 @@ def calculate_portfolio(amt, transactions, ptype, stocks_type, criteria, ga_mode
     portfolio_value = amt + existing_value
 
     stocks = []
+    additional_value = 0
     invested = 0
-    transact_type = 'buy' if amt > 0 else 'sell'
-    print(f'\nTo {transact_type} ${abs(amt):,.2f} for {ptype} {stocks_type} {criteria} portfolio')
+
+    if (amt != 0):
+        transact_type = 'buy' if amt > 0 else 'sell'
+        print(f'\nTo {transact_type} ${abs(amt):,.2f} for {ptype} {stocks_type} {criteria} portfolio')
+    else:
+        print(f'\nTo rebalance {ptype} {stocks_type} {criteria} portfolio')
 
     # Rebalance based on target allocation
     for t in tickers:
@@ -261,7 +266,10 @@ def calculate_portfolio(amt, transactions, ptype, stocks_type, criteria, ga_mode
                 "commission": commission
             })
 
+            additional_value += amount*p
             invested += amount*p + commission
 
+    total_value_after_latest_transaction = existing_value + additional_value
+
     print(f'* Actual amount bought/sold: ${abs(invested):,.2f}')
-    return stocks, invested
+    return stocks, invested, total_value_after_latest_transaction

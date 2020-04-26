@@ -275,3 +275,19 @@ p.asterisk {
     text-align: left;
     font-size: small;
 }
+
+.bootstrap_vcenter {
+    display: inline-block;
+    vertical-align: middle;
+    float: none;
+}
+
+hr.s1 {
+    background: none;
+    border: none;
+    width: auto;
+    height: 0;
+    border-top: 2px dotted lightgray;
+    border-left: 90px solid transparent; /* shortening left side*/
+    border-right: 90px solid transparent; /* shortening right side*/
+}

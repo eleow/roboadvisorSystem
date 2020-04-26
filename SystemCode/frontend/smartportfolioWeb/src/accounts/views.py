@@ -17,7 +17,7 @@ User = get_user_model()
 @method_decorator(login_required(login_url='/login'), name='dispatch')
 class CashTransferView(generic.FormView):
     template_name = "accounts/cash_transfer.html"
-    success_url = reverse_lazy("portfolio")  # Redirect to Portfolio page on successful transfer (invoked via super().form_valid(form))
+    success_url = reverse_lazy("portfolio_edit")  # Redirect to Portfolio page on successful transfer (invoked via super().form_valid(form))
     form_class = forms.CashTransferForm
 
     def form_valid(self, form):
@@ -69,7 +69,7 @@ class CashTransferView(generic.FormView):
 # if user already logged in, AnonymousRequiredMixin will automatically redirect to settings.LOGIN_REDIRECT_URL
 class LoginView(bracesviews.AnonymousRequiredMixin, authviews.LoginView):
     template_name = "accounts/login.html"
-    success_url = reverse_lazy("portfolio")  # Redirect to Portfolio page on successful login (invoked via super().form_valid(form))
+    success_url = reverse_lazy("portfolio_edit")  # Redirect to Portfolio page on successful login (invoked via super().form_valid(form))
     form_class = forms.LoginForm
 
     def form_valid(self, form):

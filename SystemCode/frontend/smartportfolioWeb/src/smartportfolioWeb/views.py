@@ -17,6 +17,7 @@ import os
 from datetime import datetime
 from collections import OrderedDict
 
+import pytz
 from bs4 import BeautifulSoup as bs
 from .portfolio import calculate_portfolio, calculate_current_val
 
@@ -55,48 +56,58 @@ def portfolio_reset(request, mode=None):
     if mode is None:
         messages.warning(request, "All portfolio values have been reset to zero")
     else:
+        messages.warning(request, "Portfolio has been reset with some starting values")
+
         # Quick reset to some default starting values for everything
         p.avail_cash = 100000
         p.asset_transfers = 100000
 
+        # quick method of buying
+        saw_max_ret = "saw_all_weather_max_ret"
         crb = "crb_all_weather_crb"
-        p.portfolio[crb] = {"total_invested": 0, "transactions": []}
-        p.portfolio[crb]["transactions"].append({
-            "type": "system",
-            "date": datetime.now(),
-            "stocks": [
-                {"ticker": 'VTI', "price/share": 140, "shares": 20, "commision": 1},
-                {"ticker": 'TLT', "price/share": 170, "shares": 20, "commision": 1}
-            ]
-        })
-        p.portfolio[crb]["transactions"].append({
-            "type": "system",
-            "date": datetime.now(),
-            "stocks": [
-                {"ticker": 'VTI', "price/share": 150, "shares": 12, "commision": 1},
-                {"ticker": 'DBC', "price/share": 170, "shares": 11, "commision": 1}
-            ]
-        })
-        p.portfolio[crb]["total_invested"] = (140 * 20) + (170 * 20) + (150 * 12) + (170 * 11) + 4
-        p.avail_cash -= p.portfolio[crb]["total_invested"]
+
+        # simulate transactions in the past, including rebalancing by the system
+        to_add = []
+        to_add.append({'_id': saw_max_ret, 'amt': 15000, 'date': "2019-01-02 09:30", 'verbose': False, 'ttype': 'user_buy'})
+        to_add.append({'_id': saw_max_ret, 'amt': -5000, 'date': "2019-02-18 09:30", 'verbose': False, 'ttype': 'user_sell'})
+        to_add.append({'_id': saw_max_ret, 'amt': 8000, 'date': "2020-01-05 09:30", 'verbose': False, 'ttype': 'user_buy'})
+        to_add.append({'_id': saw_max_ret, 'amt': -4000, 'date': "2020-02-10 09:30", 'verbose': False, 'ttype': 'user_sell'})
+        for i in range(2, 13):
+            to_add.append({'_id': saw_max_ret, 'amt': 0, 'date': f"2019-{i:02}-01 16:00", 'verbose': False, 'ttype': 'system'})
+
+        to_add.append({'_id': crb, 'amt': 5000, 'date': "2019-06-02 09:30", 'verbose': False, 'ttype': 'user_buy'})
+        for i in range(7, 13):
+            to_add.append({'_id': crb, 'amt': 0, 'date': f"2019-{i:02}-01 16:01", 'verbose': False, 'ttype': 'system'})
+
+        for i in range(1, 4):
+            to_add.append({'_id': saw_max_ret, 'amt': 0, 'date': f"2020-{i:02}-01 16:00", 'verbose': False, 'ttype': 'system'})
+            to_add.append({'_id': crb, 'amt': 0, 'date': f"2020-{i:02}-15 16:01", 'verbose': False, 'ttype': 'system'})
+
+        # sort chronologically first, then execute in order
+        to_add.sort(key=lambda a: a['date'])
+
+        for a in to_add:
+            portfolio_transact(request, **(a))
 
     p.save()
 
     # Redirect to portfolio page
-    return redirect(reverse("portfolio"))
+    return redirect(reverse("portfolio_edit"))
 
 
-def portfolio_sell(request, pid, amt):
-    return portfolio_transact(request, pid, -amt)  # switch to negative amount
+def portfolio_sell(request, pid, amt, date=None, ttype='user_sell'):
+    return portfolio_transact(request, pid, -amt, date=date, ttype=ttype)  # switch to negative amount
 
 
-def portfolio_buy(request, pid, amt):
-    return portfolio_transact(request, pid, amt)
+def portfolio_buy(request, pid, amt, date=None, ttype='user_buy'):
+    return portfolio_transact(request, pid, amt, date=date, ttype=ttype)
 
 
 @login_required(login_url='/login')
-def portfolio_transact(request, _id, amt):
+def portfolio_transact(request, _id, amt, timezone='US/Mountain', date=None, ttype='system', verbose=True):
     p = request.user.profile
+    tz = pytz.timezone(timezone)
+    transaction_date = datetime.now(tz) if date is None else tz.localize(datetime.strptime(date, '%Y-%m-%d %H:%M'))
 
     # find_name = portfolio_selection[portfolio_selection.index == "mpt_spdr_max_sharpe"]['name']
     portfolio_data = portfolio_selection[portfolio_selection.index == _id]
@@ -120,20 +131,42 @@ def portfolio_transact(request, _id, amt):
             if p.portfolio.get(_id, None) is None: p.portfolio[_id] = {"total_invested": 0, "transactions": []}
 
             # Add data, passing in existing transactions as this will be used for rebalancing
-            stocks, invested = calculate_portfolio(amt, p.portfolio[_id]["transactions"], t, s, c, m)
+            stocks, invested, asset_value = calculate_portfolio(amt, p.portfolio[_id]["transactions"], t, s, c, m, transaction_date)
 
             diff = amt - invested
 
-            if invested > 0:
-                messages.success(request, f"Bought ${invested:,.2f} in {p_name.upper()} successfully! (${diff:,.2f} returned to avail cash)")
+            if verbose:
+                if invested > 0:
+                    messages.success(request, f"Bought ${invested:,.2f} in {p_name.upper()} successfully! (${diff:,.2f} returned to avail cash)")
+                else:
+                    messages.success(request, f"Sold ${-invested:,.2f} in {p_name.upper()} successfully!")
             else:
-                messages.success(request, f"Sold ${-invested:,.2f} in {p_name.upper()} successfully!")
+                print(f'Transaction: ${invested:,.2f} in {p_name.upper()}')
 
+            # Update all other existing pid with current value, to ensure a smooth plot
+            # if ('user' in ttype):
+            for pid in p.portfolio.keys():
+                if (pid != _id):
+                    p.portfolio[pid]['transactions'].append({
+                        "type": "update",
+                        "date": transaction_date,
+                        "stocks": [],
+                        "value_at_date": calculate_current_val(p.portfolio[pid]["transactions"], date=transaction_date)
+                    })
+                    # p.portfolio[pid]['transactions'].sort(key=lambda t: t["date"])
+
+            # Add latest transaction
             transaction = {
-                "type": "user",
-                "date": datetime.now(),
-                "stocks": stocks
+                "type": ttype,
+                "date": transaction_date,
+                "stocks": stocks,
+                "value_at_date": asset_value
             }
+
+            # if (len(p.portfolio[_id]["transactions"]) > 0):
+            #     last_entry = p.portfolio[_id]["transactions"][-1]
+            #     if (last_entry["date"] == transaction_date and len(last_entry["stocks"]) == 0):
+            #         p.portfolio[_id]["transactions"].pop()
 
             p.portfolio[_id]["transactions"].append(transaction)
             p.portfolio[_id]["total_invested"] += invested
@@ -257,12 +290,12 @@ class PortfolioEditPage(generic.TemplateView):
 
     def dispatch(self, request, *args, **kwargs):
         p = self.request.user.profile
-        kwargs["cash"] = p.avail_cash
 
         # portfolios will be displayed using jquery datatables in template
         kwargs["avail_portfolios"] = portfolio_selection.T.to_dict()
 
         # get current portfolios
+        if p.portfolio is None: p.portfolio = {}
         current_portfolios = dict.fromkeys(p.portfolio.keys())
         all_portfolios = portfolio_selection.to_dict("index")
 
@@ -287,7 +320,64 @@ class PortfolioEditPage(generic.TemplateView):
         p.gross_asset_value = gross_asset_value  # update gross asset value
         p.save()
 
+        # data for summary table
+        kwargs["account"] = p.gross_asset_value + p.avail_cash
+        kwargs["earnings"] = kwargs["account"] - p.asset_transfers
+        kwargs["cash"] = p.avail_cash
+
+        kwargs["account_title"] = "Sum of gross asset value and available cash"
+        kwargs["asset_title"] = "Total transfers into account"
+        kwargs["earnings_title"] = "Difference between account and asset transfers"
+        kwargs["gross_asset_title"] = "How much your assets are worth now"
+        kwargs["cash_title"] = "Available cash that can be used for investment"
+
         kwargs["current_portfolios"] = current_portfolios
+
+        # #16 - Also plot the transaction history/ value at each rebalance
+        user_port = request.user.profile.portfolio
+        trans_graph = []
+        trans_annotate_B = []
+        trans_annotate_S = []
+
+        for pid in user_port.keys():
+            # pid = "saw_all_weather_max_ret"
+            user_port_pid = user_port.get(pid, None)
+            if (user_port_pid is not None):
+                trans = user_port_pid['transactions']
+                trans_graph_data = []
+                for t in trans:
+                    x = int(t['date'].timestamp() * 1000)
+                    y = float(t['value_at_date'])
+
+                    # To simplify things, since this is a stacked chart, we will place annotation on x-axis
+                    # In order to style them differently, we will place them in separate arrays
+                    tt = t['type']
+                    if (tt == "user_buy"):
+                        trans_annotate_B.append({
+                            'point': {'xAxis': 0, 'yAxis': 0, 'x': x, 'y': 0}, 'text': 'B'
+                        })
+                    elif (tt == "user_sell"):
+                        trans_annotate_S.append({
+                            'point': {'xAxis': 0, 'yAxis': 0, 'x': x, 'y': 0}, 'text': 'S'
+                        })
+                    # if tt in ['user_buy', 'user_sell']:
+                    #     text = 'B' if tt == 'user_buy' else 'S'
+                    #     trans_annotations.append({
+                    #         'point': {'xAxis': 0, 'yAxis': 0, 'x': x, 'y': y}, 'y': 0, 'shape': 'circle', 'text': text
+                    #     })
+
+                    trans_graph_data.append([x, y])
+
+                trans_graph.append({
+                    "name": all_portfolios[pid]['name'],
+                    "data": trans_graph_data,
+                    "visible": "true"
+                })
+
+        kwargs["trans_graph"] = trans_graph
+        kwargs["trans_annotate_B"] = trans_annotate_B
+        kwargs["trans_annotate_S"] = trans_annotate_S
+
         return super(PortfolioEditPage, self).dispatch(request, *args, **kwargs)
 
 

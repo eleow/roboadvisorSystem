@@ -1,6 +1,6 @@
 {% load thumbnail %}
 <li {% if active_link == "portfolio" %}class="active"{% endif %}>
-    {% if disable_link == "portfolio" %}<a href="#">{% else %}<a href="{% url 'portfolio' %}">{% endif %}<i class="fa fa-fw fa-line-chart"></i>Portfolio</a>
+    {% if disable_link == "portfolio" %}<a href="#">{% else %}<a href="{% url 'portfolio_edit' %}">{% endif %}<i class="fa fa-fw fa-line-chart"></i>Portfolio</a>
 </li>
 <li {% if active_link == "about" %}class="active"{% endif %}><a href="{% url 'about' %}">About</a></li>
 <!-- <li ><a href="{% url 'accounts:logout' %}"><i class="fa fa-fw fa-sign-out"></i>Log Out</a></li> -->

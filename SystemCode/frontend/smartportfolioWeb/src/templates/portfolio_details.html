@@ -74,7 +74,7 @@
 <script type="text/javascript" charset="utf8" src="{% static 'site/vendor/Highstock/js/themes/sand-signika.js' %}"></script>
 <script>
     $('#select_portfolio').change(function() {
-        $(location).attr('href', "/portfolio_details/" + $(this).val());
+        $(location).attr('href', "/portfolio/details/" + $(this).val());
     });
 
     {% if name %}
@@ -83,6 +83,7 @@
     var options = {
         title: {text: "Cumulative returns based on backtesting from {{ range.0 }} to {{ range.1 }}"},
         chart: {renderTo: 'backtest'},
+        legend: {enabled: true,},
         rangeSelector: {selected: 4},
         yAxis: {
             labels: {
@@ -99,13 +100,12 @@
             yDecimals: 2,
             valueDecimals: 2
         },
-        series: []
+        series: json
     };
-    options.series = json;
+    // options.series = json;
 
     var chart = new Highcharts.StockChart(options);
     chart.redraw();
     {% endif %}
-
 </script>
 {% endblock scripts %}

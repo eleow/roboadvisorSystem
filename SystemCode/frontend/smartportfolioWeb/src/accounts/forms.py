@@ -41,8 +41,8 @@ class LoginForm(AuthenticationForm):
         self.helper.layout = Layout(
             PrependedText('username', '<i class="fa fa-envelope-o"></i>', placeholder="Enter Email Address"),
             PrependedText('password', '<i class="fa fa-key"></i>', placeholder="Enter Password"),
-            HTML('<a href="{}">Forgot Password?</a>'.format(
-                reverse("accounts:password-reset"))),
+            # HTML('<a href="{}">Forgot Password?</a>'.format(
+            #     reverse("accounts:password-reset"))),
             Field('remember_me'),
             Submit('sign_in', 'Log in',
                    css_class="btn btn-lg btn-primary btn-block"),

@@ -35,14 +35,52 @@
       </div>
 </div>
 
+<div class="container profile-body">
+    <!-- <a href="{% url 'accounts:cash_transfer' %}" class="btn btn-info">Add/Withdraw Funds</a>
+    <a href="#current_portfolios" class="btn btn-info">Current Portfolios</a>
+    <a href="#avail_portfolios" class="btn btn-info">Available Portfolios</a> -->
+    <h2>Account Summary</h2>
+    <div class="row">
+        <div class="col-sm-4 bootstrap_vcenter">
+            <ul class="list-group">
+                <li class="list-group-item text-right"><span class="pull-left"><strong
+                            title="{{ account_title }}">Account:</strong></span> {{ account|floatformat:2|intcomma }}
+                </li>
+                <li class="list-group-item text-right"><span class="pull-left"><strong title="{{ asset_title }}">Asset
+                            Transfers:</strong></span> {{ user.profile.asset_transfers|floatformat:2|intcomma }} </li>
+                <li class="list-group-item text-right"><span class="pull-left"><strong
+                            title="{{ earnings_title }} ">Earnings:</strong></span>
+                    {{ earnings|floatformat:2|intcomma }} </li>
+            </ul>
+            <ul class="list-group">
+                <li class="list-group-item text-right"><span class="pull-left"><strong
+                            title="{{ gross_asset_title }} ">Gross Asset Value:</strong></span>
+                    {{ user.profile.gross_asset_value|floatformat:2|intcomma }} </li>
+                <li class="list-group-item text-right"><span class="pull-left"><strong
+                            title="{{ cash_title }} ">Available Cash:</strong></span>
+                    {{ user.profile.avail_cash|floatformat:2|intcomma }} </li>
+            </ul>
+            <a href="{% url 'accounts:cash_transfer' %}" class="btn btn-info">Add/Withdraw Funds</a>
+        </div><div class="col-sm-8 bootstrap_vcenter" >
+            {% if trans_graph %}
+            <div id="transactions" class="container" style="width:100%"></div>
+            * B - Buy transaction, S - Sell transaction
+            {% else %}
+            <h2>No portfolios in account</h2>
+            <h4>Invest in one of the available portfolios below</h4>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<hr class="s1"></hr>
+
+{% if current_portfolios.items|length > 0 %}
+<a name="current_portfolios"></a>
 <div id="sec2" class="text-page_s">
     <div class="container">
         <div class="row">
           <div class="col-md-12 text-center">
             <h2>Current Portfolios</h1>
-                {% if current_portfolios.items|length == 0 %}
-                <h4>There are no portfolios to display</h4>
-                {% else %}
                 {% for id, item in current_portfolios.items %}
                 <table class="current_portfolio" id="portfolio_{{id}}" pid="{{id}}" pname="{{item.name}}" cval="{{item.current_value|floatformat:2}}">
                     <thead>
@@ -82,12 +120,14 @@
                     </tr>
                 </tbody></table>
                 {% endfor %}
-                {% endif %}
           </div>
         </div>
       </div>
 </div>
+<hr class="s1"></hr>
+{% endif %}
 
+<a name="avail_portfolios"></a>
 <div id="sec2" class="text-page_s">
     <div class="container">
         <div class="row">
@@ -201,9 +241,7 @@
 <script>
     $(document).ready( function () {
         var $avail_portfolio_table = $('#avail_portfolios').DataTable({
-            // "columnsDef": [
-            //     { "targets": -1, "data": null, "defaultContent": "<button>Buy!</button>"}
-            // ]
+            "pageLength": 25,
             "columns": [
                 {"data": "id", "visible": false},
                 {"data": "name"},
@@ -277,7 +315,7 @@
             var id = $dialog_buy.data("id");
 
             if (valid) {
-                $(location).attr('href', "/portfolio_edit/buy/" + id + "/" + Math.round($amt_buy.val()))
+                $(location).attr('href', "/portfolio/buy/" + id + "/" + Math.round($amt_buy.val()))
                 $dialog_buy.dialog("close");
                 //
             }
@@ -291,7 +329,7 @@
             var id = $dialog_sell.data("id");
 
             if (valid) {
-                $(location).attr('href', "/portfolio_edit/sell/" + id + "/" + Math.round($amt_sell.val()))
+                $(location).attr('href', "/portfolio/sell/" + id + "/" + Math.round($amt_sell.val()))
                 $dialog_buy.dialog("close");
                 //
             }
@@ -380,18 +418,73 @@
 
         $('table.current_portfolio tbody').on('click', 'button.details', function() {
             pid = $(this).closest("table").attr("pid");
-            $(location).attr('href', "/portfolio_details/" + pid);
+            $(location).attr('href', "/portfolio/details/" + pid);
         });
 
         $('table.portfolio tbody').on('click', 'button.details', function() {
             var currentRow = $(this).closest("tr");
             var data =  $avail_portfolio_table.row(currentRow).data();
             var pid = data['id'];
-            $(location).attr('href', "/portfolio_details/" + pid);
+            $(location).attr('href', "/portfolio/details/" + pid);
         });
 
 
     } );
 
+</script>
+<script type="text/javascript" charset="utf8" src="{% static 'site/vendor/Highstock/js/highstock.js' %}"></script>
+<script type="text/javascript" charset="utf8" src="{% static 'site/vendor/Highstock/js/modules/annotations.js' %}"></script>
+<script type="text/javascript" charset="utf8" src="{% static 'site/vendor/Highstock/js/themes/sand-signika.js' %}"></script>
+<script>
+    {% if trans_graph %}
+    var trans_json = {{ trans_graph | safe }};
+    var trans_options = {
+        title: {text: "Actual portfolio value with time"},
+        chart: {renderTo: 'transactions', type: 'area'},
+        legend: {enabled: true,},
+        rangeSelector: {selected: 4},
+        yAxis: {
+            labels: {
+                style: {
+                    color: "black"
+                }
+                // formatter: function() {
+                //     return (this.value > 0 ? '+' : '') + this.value + '%';
+                // }
+            },
+            plotLines: [{value: 0, width: 2, color: 'silver'}]
+        },
+        // plotOptions: {series: {compare: 'percent'}},
+        plotOptions: {
+            area: {
+                stacking: 'normal',
+                lineColor: '#666666',
+                lineWidth: 1,
+                marker: {
+                    lineWidth: 1,
+                    lineColor: '#666666'
+                }
+            }
+        },
+        tooltip: {
+            // pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+            pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b><br/>',
+            yDecimals: 2,
+            valueDecimals: 2,
+        },
+        series: trans_json,
+        annotations: [
+            {
+                labelOptions: { backgroundColor: 'rgba(0,0,0,0.5)', y: 0, shape: 'circle' },
+                labels: {{ trans_annotate_B | safe }}
+            }, {
+                labelOptions: { backgroundColor: 'rgba(255,255,255,0.5)', y: 0, shape: 'circle' },
+                labels: {{ trans_annotate_S | safe }}
+            }
+        ],
+    };
+    var trans_chart = new Highcharts.StockChart(trans_options);
+
+    {% endif %}
 </script>
 {% endblock scripts %}
