@@ -21,6 +21,8 @@ PASSWORD_HASHERS = [
 ]
 AUTH_PASSWORD_VALIDATORS = []
 
+ALLOWED_HOSTS = ["*"]
+
 # # Django Debug Toolbar
 # INSTALLED_APPS += ("debug_toolbar",)
 
