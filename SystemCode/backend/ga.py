@@ -20,13 +20,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from algorithms import TradingSignalAlgorithm, OptAlgorithm, run
-from utils import isnotebook, retrieve_social_media
+from utils import retrieve_social_media
 debug = True
 
-if isnotebook():
-    from tqdm.notebook import tqdm
-else:
-    from tqdm import tqdm
+# if isnotebook():
+#     from tqdm.notebook import tqdm
+# else:
+from tqdm import tqdm
 
 
 def saw_ga_trading_fn(stock, date, lookback=7, **kwargs):

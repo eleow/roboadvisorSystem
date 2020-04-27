@@ -14,6 +14,7 @@ import pickle
 import pytz
 from yahoofinancials import YahooFinancials
 from pypfopt.base_optimizer import portfolio_performance
+from django.conf import settings
 
 sys.path.append('../../../backend')  # add parent folder to sys path
 from algorithms import CRBAlgorithm, OptAlgorithm, TradingSignalAlgorithm
@@ -126,7 +127,7 @@ def get_ticker_prices(tickers, timezone='US/Mountain', history=1, date=None):
     # generate hash based on input params, so that we can cache results
     md5input = f"{timezone}{t_end.strftime('%Y%m%d')}_{history}" + "-".join(tickers)
     md5hash = hashlib.md5(md5input.encode())
-    filename = f"/cache/{md5hash.hexdigest()}.pickle"
+    filename = os.path.join(settings.MEDIA_ROOT, f"cache/{md5hash.hexdigest()}.pickle")
 
     if (os.path.isfile(filename)):
         print("Retrieving ticker prices using cached file: " + filename)

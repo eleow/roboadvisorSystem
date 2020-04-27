@@ -19,7 +19,7 @@
     <br />
     <br />
     <br />
-    <a href="https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/Examples.ipynb">View Jupyter sample</a>
+    <a href="https://smartportfolioadvisor.herokuapp.com/">View Heroku demo</a>
     ·
     <a href="https://github.com/eleow/roboadvisorSystem/issues">Report Bug</a>
     ·
@@ -28,8 +28,6 @@
 </p>
 
 ## About
-
-
 
 ## Getting Started
 
@@ -44,9 +42,9 @@
 git clone https://github.com/eleow/roboadvisorSystem.git
 ```
 
-* For backend code, install prerequisites in "requirements.txt"
-* For frontend code, install prerequisites in "\SystemCode\frontend\smartportfolioWeb\requirements.txt"
-* Note: zipline uses pandas==0.22.0
+* For frontend code, install prerequisites in "requirements.txt"
+* For backend code, install prerequisites in "\SystemCode\backend\requirements.txt"
+* Note: zipline uses pandas==0.22.0 (Ignore warning about conflicts)
 
 ## Usage
 
