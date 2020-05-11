@@ -12,10 +12,10 @@
     <img src="_misc/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">Robo Advisor</h3>
+  <h3 align="center">Robo-Advisor using BERT sentiments from Twitter feeds for enhanced Portfolio Optimisation with Genetic Algorithm</h3>
 
   <p align="center">
-    Automatic goal-oriented portfolio allocation and rebalancing using a variety of classic and machine learning algorithms
+    Automatic goal-oriented portfolio allocation and rebalancing using a variety of classic and machine learning algorithms, as well as our so-called Sentimental All-Weather (SAW) and Sentimental Modern Portfolio Optimisation (SMPT) portfolios
     <br />
     <br />
     <br />
@@ -28,6 +28,28 @@
 </p>
 
 ## About
+
+We propose a hybrid approach to portfolio managemnt, using traditional portfolio optimisation approaches as a baseline and augmenting portfolio performance using sentiments derived from Twitter. The usage of traditional portfolio optimisation as a backbone is advantageous as it is mostly familiar to investors and fund managers alike, and is easier to explain. By using Twitter sentiments as an insight into overall investor sentiments, we will also be pro-active towards potential market dips and spikes, and be able to increase our cumulative returns. An overview of the proposed approach, and the out-of-sample performance are shown below.
+
+![Overall Approach](_misc/figure_overall_architecture.png)
+
+![Overall Approach](_misc/figure_saw.png)
+
+An end-to-end robo-advisor system is developed using Django, leveraging [Django Edge v2.2](https://django-edge.readthedocs.io/en/latest/). The list of portfolios is easily configurable from a spreadsheet, and includes SPDR
+sector ETFs, and All-Weather ETFs, SAW and SMPT portfolios. The overall user and system flows are shown below. As a prototype robo-advisor, it will only have the following core functionalities:
+
+- Basic user management - sign up and log in,
+- Summary page showing current account balance, earnings, portfolio as-
+set value, etc,
+- Add and withdraw funds (virtual funds, no actual interface with real money), (iv) Portfolio management
+- Compare, buy and sell portfolios.
+
+![Django User and System Flows](_misc/figure_django_architecture.png)
+
+For more details, please refer to the complete paper [here](https://github.com/eleow/roboadvisorSystem/blob/master/docs/Robo_Advisor_using_BERT_sentiments_from_Twitter_feeds_for_enhanced_Portfolio_Optimisation_with_Genetic_Algorithm.pdf).
+
+This repository can also be used to facilitate the experimentation of different portfolio algorithms. Refer to [example Jupyter notebooks](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks)
+
 
 ## Getting Started
 
@@ -48,23 +70,32 @@ git clone https://github.com/eleow/roboadvisorSystem.git
 
 ## Usage
 
-Example usage of most backend functionalities can be found in the Jupyter Notebooks, [Examples](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks)
-
-Robo-advisor system can be started by running the front-end Django server.
-
-### Starting Front-end
-
-Start the front-end by typing the following in your Anaconda environment, in the root directory of the repo
+Robo-advisor system can be started by running the front-end Django server. Start the front-end by typing the following in your Anaconda environment, in the *root directory* of the repo
 
 ```bash
 make front
 ```
+
+Alternatively, if 'make' is not installed, then you can type the following
+
+```bash
+cd /d SystemCode/frontend/smartportfolioWeb/src
+python manage.py runserver
+```
+
+## Examples
+
+Example usage of most backend functionalities can be found in the Jupyter Notebooks, [Examples](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks)
 
 ### Examples for Sentiment Analysis
 
 Sentiment analysis example is found in the Jupyter Notebook, [Sentiments](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks/Sentiments.ipynb)
 
 Tweets are obtained via ["Twitter-Get-Old-Tweets-Scraper"](https://github.com/eleow/Twitter-Get-Old-Tweets-Scraper) using Jupyter Notebook, [GetTwitterData.ipynb](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks/GetTwitterData.ipynb). Note that after retrieving a certain number of tweets (14000++), Twitter will block the request with "Sorry, die Anzahl deiner Anfragen ist begrenzt" which means "Sorry, the number of your requests is limited". Then just adjust argument "--until" with the earliest date where it failed and rerun the script after waiting for a while or with a different IP address, and save to a new file.
+
+### Examples for Portfolio Optimisation
+
+Portfolio optimisation examples are found in the Jupyter Notebook, [Portfolios](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks/Portfolios.ipynb).
 
 ### Plot Markowitz bullet
 
@@ -84,6 +115,7 @@ This will generate the following:
 * Random portfolios, plotted with color map applied based on Sharpe ratio
 
 ![Markowitz Bullet](_misc/MarkowitzBullet.png)
+
 
 ## License
 

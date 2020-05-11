@@ -376,7 +376,7 @@ def compareResults(base_name="SAW_GA_MAX_RET", opt_type="saw",
     return test_ga, all_ga
 
 
-def example(npop=200, ngen=5, seed=244, capital_base=1000000,
+def example(npop=200, ngen=5, seed=244, capital_base=100000,
             opt_type="smpt", objective="min_vol",
             filepath='data/twitter/sentiments_overall_daily.csv'):
     import pytz
