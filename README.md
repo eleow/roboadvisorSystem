@@ -41,8 +41,8 @@ sector ETFs, and All-Weather ETFs, SAW and SMPT portfolios. The overall user and
 - Basic user management - sign up and log in,
 - Summary page showing current account balance, earnings, portfolio as-
 set value, etc,
-- Add and withdraw funds (virtual funds, no actual interface with real money), (iv) Portfolio management
-- Compare, buy and sell portfolios.
+- Add and withdraw funds (virtual funds, no actual interface with real money),
+- Portfolio management - Compare, buy and sell portfolios.
 
 ![Django User and System Flows](_misc/figure_django_architecture.png)
 
