@@ -74,6 +74,7 @@ INSTALLED_APPS = (
     "easy_thumbnails",
     "profiles",
     "accounts",
+    'django_extensions',
 )
 
 MIDDLEWARE = [
@@ -129,7 +130,7 @@ MESSAGE_TAGS = {messages.ERROR: "danger"}
 
 # Authentication Settings
 AUTH_USER_MODEL = "authtools.User"
-LOGIN_REDIRECT_URL = reverse_lazy("profiles:show_self")
+LOGIN_REDIRECT_URL = reverse_lazy("portfolio_edit")
 LOGIN_URL = reverse_lazy("accounts:login")
 
 THUMBNAIL_EXTENSION = "png"  # Or any extn for your thumbnails

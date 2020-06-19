@@ -3,3 +3,5 @@
 django-debug-toolbar==1.10.1
 sqlparse==0.2.4
 werkzeug==0.14.1
+pyparsing 
+pydot
