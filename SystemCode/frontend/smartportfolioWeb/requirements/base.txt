@@ -9,7 +9,7 @@ django-heroku==0.3.1
 django-picklefield==2.1.1
 django==2.2.11
 easy-thumbnails==2.5
-pillow==5.3.0
+pillow>=6.2.2
 pytz==2018.7
 pyfolio==0.9.2
 PyPortfolioOpt==0.5.3
