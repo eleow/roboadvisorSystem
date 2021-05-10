@@ -46,7 +46,7 @@ set value, etc,
 
 ![Django User and System Flows](_misc/figure_django_architecture.png)
 
-For more details, please refer to the complete paper [here](https://github.com/eleow/roboadvisorSystem/blob/master/docs/Robo_Advisor_using_BERT_sentiments_from_Twitter_feeds_for_enhanced_Portfolio_Optimisation_with_Genetic_Algorithm.pdf).
+For more details, please refer to the complete paper [here](https://www.sciencedirect.com/science/article/pii/S0957417421005017).
 
 This repository can also be used to facilitate the experimentation of different portfolio algorithms. Refer to [example Jupyter notebooks](https://github.com/eleow/roboadvisorSystem/blob/master/SystemCode/backend/notebooks)
 
