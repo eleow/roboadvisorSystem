@@ -22,6 +22,6 @@ openpyxl
 flake8
 yahoofinancials
 beautifulsoup4
-numpy==1.18.1
+numpy==1.22.0
 tqdm
 jupyter
