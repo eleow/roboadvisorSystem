@@ -11,4 +11,4 @@ scikit-learn
 pytorch
 pytorch-pretrained-bert==0.6.2
 beautifulsoup4
-numpy==1.18.1
+numpy==1.22.0
